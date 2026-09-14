@@ -5609,38 +5609,227 @@ Log Tamper → Evidence Destruction → IR Report
 
 ```
 IDENTITY (6):
-├── mfa_bypass         — MFA bypass techniques
-├── sso_abuse          — SSO token abuse
-├── conditional_bypass │ — Conditional access bypass
-├── device_compliance  — Device compliance bypass
-├── identity_federation│ — Federation attack
-└── credential_stuff   — Credential stuffing
+
+1. MFA_BYPASS
+   WHAT: MFA bypass techniques
+   HOW:
+   ├── Intercept MFA token
+   ├── Bypass MFA validation
+   ├── Use alternate method
+   └── Access account
+   DETECTION: MFA bypass detection
+   BYPASS: Use alternate method
+
+2. SSO_ABUSE
+   WHAT: SSO token abuse
+   HOW:
+   ├── Steal SSO token
+   ├── Use token ke other services
+   ├── Access multiple services
+   └── Privilege escalation
+   DETECTION: SSO abuse detection
+   BYPASS: Use alternate method
+
+3. CONDITIONAL_BYPASS
+   WHAT: Conditional access bypass
+   HOW:
+   ├── Identify conditional access policy
+   ├── Find bypass vector
+   ├── Bypass policy
+   └── Access resource
+   DETECTION: Conditional access bypass detection
+   BYPASS: Use alternate method
+
+4. DEVICE_COMPLIANCE
+   WHAT: Device compliance bypass
+   HOW:
+   ├── Identify compliance requirements
+   ├── Spoof device compliance
+   ├── Bypass check
+   └── Access resource
+   DETECTION: Device compliance bypass detection
+   BYPASS: Use alternate method
+
+5. IDENTITY_FEDERATION
+   WHAT: Federation attack
+   HOW:
+   ├── Identify federation trust
+   ├── Exploit trust relationship
+   ├── Forge identity
+   └── Access resource
+   DETECTION: Federation attack detection
+   BYPASS: Use alternate method
+
+6. CREDENTIAL_STUFF
+   WHAT: Credential stuffing
+   HOW:
+   ├── Use credential database
+   ├── Stuff credentials
+   ├── Bypass MFA (if weak)
+   └── Access account
+   DETECTION: Credential stuffing detection
+   BYPASS: Use alternate method
 
 NETWORK (6):
-├── micro_seg_bypass   — Micro-segmentation bypass
-├── ztna_bypass        — ZTNA (Zscaler/Cloudflare) bypass
-├── vpn_bypass         — VPN bypass techniques
-├── tunnel_establish   — Tunnel establishment
-├── protocol_smuggle   — Protocol smuggling
-└── dns_exfil          — DNS exfiltration
+
+1. MICRO_SEG_BYPASS
+   WHAT: Micro-segmentation bypass
+   HOW:
+   ├── Identify segmentation rules
+   ├── Find bypass vector
+   ├── Bypass segmentation
+   └── Access restricted resource
+   DETECTION: Micro-segmentation bypass detection
+   BYPASS: Use alternate method
+
+2. ZTNA_BYPASS
+   WHAT: ZTNA (Zscaler/Cloudflare) bypass
+   HOW:
+   ├── Identify ZTNA configuration
+   ├── Find bypass vector
+   ├── Bypass ZTNA
+   └── Access resource
+   DETECTION: ZTNA bypass detection
+   BYPASS: Use alternate method
+
+3. VPN_BYPASS
+   WHAT: VPN bypass techniques
+   HOW:
+   ├── Identify VPN configuration
+   ├── Find bypass vector
+   ├── Bypass VPN
+   └── Access resource
+   DETECTION: VPN bypass detection
+   BYPASS: Use alternate method
+
+4. TUNNEL_ESTABLISH
+   WHAT: Tunnel establishment
+   HOW:
+   ├── Create tunnel ke internal network
+   ├── Bypass perimeter security
+   ├── Access internal resources
+   └── Lateral movement
+   DETECTION: Tunnel detection
+   BYPASS: Use alternate method
+
+5. PROTOCOL_SMUGGLE
+   WHAT: Protocol smuggling
+   HOW:
+   ├── Identify allowed protocols
+   ├── Smuggle malicious traffic
+   ├── Bypass protocol filtering
+   └── Access resource
+   DETECTION: Protocol smuggling detection
+   BYPASS: Use alternate method
+
+6. DNS_EXFIL
+   WHAT: DNS exfiltration
+   HOW:
+   ├── Encode data in DNS queries
+   ├── Send ke attacker DNS
+   ├── Decode data
+   └── Exfiltrate data
+   DETECTION: DNS exfiltration detection
+   BYPASS: Use alternate method
 
 APPLICATION (5):
-├── api_auth_bypass    — API authentication bypass
-├── session_hijack     — Session hijacking
-├── token_forge        — Token forgery
-├── policy_bypass      — Policy bypass
-└── access_escalation  — Access escalation
+
+1. API_AUTH_BYPASS
+   WHAT: API authentication bypass
+   HOW:
+   ├── Identify API authentication
+   ├── Find bypass vector
+   ├── Bypass authentication
+   └── Access API
+   DETECTION: API auth bypass detection
+   BYPASS: Use alternate method
+
+2. SESSION_HIJACK
+   WHAT: Session hijacking
+   HOW:
+   ├── Steal session token
+   ├── Use token ke API
+   ├── Access user session
+   └── Privilege escalation
+   DETECTION: Session hijacking detection
+   BYPASS: Use alternate method
+
+3. TOKEN_FORGE
+   WHAT: Token forgery
+   HOW:
+   ├── Identify token format
+   ├── Forge token
+   ├── Use token ke API
+   └── Access resource
+   DETECTION: Token forgery detection
+   BYPASS: Use alternate method
+
+4. POLICY_BYPASS
+   WHAT: Policy bypass
+   HOW:
+   ├── Identify security policy
+   ├── Find bypass vector
+   ├── Bypass policy
+   └── Access resource
+   DETECTION: Policy bypass detection
+   BYPASS: Use alternate method
+
+5. ACCESS_ESCALATION
+   WHAT: Access escalation
+   HOW:
+   ├── Identify current access level
+   ├── Find escalation vector
+   ├── Escalate privileges
+   └── Access elevated resource
+   DETECTION: Access escalation detection
+   BYPASS: Use alternate method
 
 DATA (4):
-├── dlp_bypass         — DLP bypass techniques
-├── exfil_tunnel       — Exfiltration tunnel
-├── encryption_bypass  — Encryption bypass
-└── classification_bypass│ — Data classification bypass
 
-FALLBACK:
+1. DLP_BYPASS
+   WHAT: DLP bypass techniques
+   HOW:
+   ├── Identify DLP rules
+   ├── Find bypass vector
+   ├── Bypass DLP
+   └── Exfiltrate data
+   DETECTION: DLP bypass detection
+   BYPASS: Use alternate method
+
+2. EXFIL_TUNNEL
+   WHAT: Exfiltration tunnel
+   HOW:
+   ├── Create tunnel ke external
+   ├── Exfiltrate data through tunnel
+   ├── Bypass network monitoring
+   └── Data exfiltration
+   DETECTION: Exfiltration tunnel detection
+   BYPASS: Use alternate method
+
+3. ENCRYPTION_BYPASS
+   WHAT: Encryption bypass
+   HOW:
+   ├── Identify encryption method
+   ├── Find bypass vector
+   ├── Bypass encryption
+   └── Access plaintext data
+   DETECTION: Encryption bypass detection
+   BYPASS: Use alternate method
+
+4. CLASSIFICATION_BYPASS
+   WHAT: Data classification bypass
+   HOW:
+   ├── Identify classification labels
+   ├── Find bypass vector
+   ├── Bypass classification
+   └── Access restricted data
+   DETECTION: Classification bypass detection
+   BYPASS: Use alternate method
+```
+
+**Fallback:**
 MFA Bypass → SSO Abuse → Conditional Bypass → ZTNA Bypass →
 Micro-seg Bypass → DLP Bypass → Tunnel Exfil → ALERT
-```
 
 ---
 
