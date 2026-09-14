@@ -4891,40 +4891,265 @@ Network Tap → WiFi Rogue AP → ALERT
 
 ```
 DETECTION_TEST (8):
-├── alert_validation   — Test SOC alert accuracy
-├── detection_rules    — Validate detection rules (Sigma/YARA)
-├── log_coverage       — Verify log collection coverage
-├── siem_correlation   — Test SIEM correlation rules
-├── endpoint_detection │ — Test EDR detection
-├── network_detection  — Test NDR/IDS detection
-├── email_detection    — Test email security gateway
-└── cloud_detection    — Test cloud security posture
+
+1. ALERT_VALIDATION
+   WHAT: Test SOC alert accuracy
+   HOW:
+   ├── Execute attack technique
+   ├── Check if alert triggered
+   ├── Validate alert content
+   ├── Check false positive rate
+   └── Report findings
+   DETECTION: Alert validation
+   BYPASS: Use alternate method
+
+2. DETECTION_RULES
+   WHAT: Validate detection rules (Sigma/YARA)
+   HOW:
+   ├── Review Sigma rules
+   ├── Test rules against attack
+   ├── Check detection rate
+   ├── Identify gaps
+   └── Update rules
+   DETECTION: Rule validation
+   BYPASS: Use alternate method
+
+3. LOG_COVERAGE
+   WHAT: Verify log collection coverage
+   HOW:
+   ├── Execute attack technique
+   ├── Check if logs generated
+   ├── Verify log forwarding
+   ├── Identify gaps
+   └── Improve logging
+   DETECTION: Log validation
+   BYPASS: Use alternate method
+
+4. SIEM_CORRELATION
+   WHAT: Test SIEM correlation rules
+   HOW:
+   ├── Execute attack chain
+   ├── Check SIEM correlation
+   ├── Validate alert correlation
+   ├── Identify gaps
+   └── Improve correlation
+   DETECTION: SIEM validation
+   BYPASS: Use alternate method
+
+5. ENDPOINT_DETECTION
+   WHAT: Test EDR detection
+   HOW:
+   ├── Execute attack technique
+   ├── Check EDR detection
+   ├── Validate alert content
+   ├── Identify gaps
+   └── Improve detection
+   DETECTION: EDR validation
+   BYPASS: Use alternate method
+
+6. NETWORK_DETECTION
+   WHAT: Test NDR/IDS detection
+   HOW:
+   ├── Execute network attack
+   ├── Check NDR/IDS detection
+   ├── Validate alert content
+   ├── Identify gaps
+   └── Improve detection
+   DETECTION: NDR/IDS validation
+   BYPASS: Use alternate method
+
+7. EMAIL_DETECTION
+   WHAT: Test email security gateway
+   HOW:
+   ├── Send phishing email
+   ├── Check if blocked
+   ├── Validate detection
+   ├── Identify gaps
+   └── Improve detection
+   DETECTION: Email gateway validation
+   BYPASS: Use alternate method
+
+8. CLOUD_DETECTION
+   WHAT: Test cloud security posture
+   HOW:
+   ├── Execute cloud attack
+   ├── Check cloud detection
+   ├── Validate alert content
+   ├── Identify gaps
+   └── Improve detection
+   DETECTION: Cloud security validation
+   BYPASS: Use alternate method
 
 SOC_VALIDATION (6):
-├── response_time      — Measure SOC response time
-├── triage_accuracy    — Validate triage decisions
-├── escalation_path    — Test escalation procedures
-├── playbook_follow    — Validate playbook execution
-├── analyst_skill      — Assess analyst capabilities
-└── tool_effectiveness │ — Validate security tool effectiveness
+
+1. RESPONSE_TIME
+   WHAT: Measure SOC response time
+   HOW:
+   ├── Execute attack
+   ├── Start timer
+   ├── Detect when SOC responds
+   ├── Measure time
+   └── Report findings
+   DETECTION: Response time measurement
+   BYPASS: Use alternate method
+
+2. TRIAGE_ACCURACY
+   WHAT: Validate triage decisions
+   HOW:
+   ├── Execute attack
+   ├── Check triage decision
+   ├── Validate severity classification
+   ├── Identify errors
+   └── Improve triage
+   DETECTION: Triage validation
+   BYPASS: Use alternate method
+
+3. ESCALATION_PATH
+   WHAT: Test escalation procedures
+   HOW:
+   ├── Execute attack
+   ├── Check escalation path
+   ├── Validate escalation time
+   ├── Identify gaps
+   └── Improve escalation
+   DETECTION: Escalation validation
+   BYPASS: Use alternate method
+
+4. PLAYBOOK_FOLLOW
+   WHAT: Validate playbook execution
+   HOW:
+   ├── Execute attack
+   ├── Check playbook execution
+   ├── Validate steps followed
+   ├── Identify gaps
+   └── Improve playbooks
+   DETECTION: Playbook validation
+   BYPASS: Use alternate method
+
+5. ANALYST_SKILL
+   WHAT: Assess analyst capabilities
+   HOW:
+   ├── Execute attack
+   ├── Check analyst response
+   ├── Validate analysis quality
+   ├── Identify gaps
+   └── Improve training
+   DETECTION: Analyst assessment
+   BYPASS: Use alternate method
+
+6. TOOL_EFFECTIVENESS
+   WHAT: Validate security tool effectiveness
+   HOW:
+   ├── Execute attack
+   ├── Check tool detection
+   ├── Validate tool performance
+   ├── Identify gaps
+   └── Improve tools
+   DETECTION: Tool validation
+   BYPASS: Use alternate method
 
 MITRE_MAPPING (5):
-├── technique_coverage │ — Map techniques to MITRE ATT&CK
-├── tactic_coverage    — Map tactics to MITRE ATT&CK
-├── procedure_coverage │ — Map procedures to MITRE ATT&CK
-├── gap_analysis       — Identify detection gaps
-└── coverage_matrix    — Generate coverage matrix
+
+1. TECHNIQUE_COVERAGE
+   WHAT: Map techniques to MITRE ATT&CK
+   HOW:
+   ├── List all attack techniques
+   ├── Map ke MITRE technique IDs
+   ├── Check coverage
+   ├── Identify gaps
+   └── Report findings
+   DETECTION: Technique mapping
+   BYPASS: Use alternate method
+
+2. TACTIC_COVERAGE
+   WHAT: Map tactics to MITRE ATT&CK
+   HOW:
+   ├── List all attack tactics
+   ├── Map ke MITRE tactic IDs
+   ├── Check coverage
+   ├── Identify gaps
+   └── Report findings
+   DETECTION: Tactic mapping
+   BYPASS: Use alternate method
+
+3. PROCEDURE_COVERAGE
+   WHAT: Map procedures to MITRE ATT&CK
+   HOW:
+   ├── List all attack procedures
+   ├── Map ke MITRE procedure IDs
+   ├── Check coverage
+   ├── Identify gaps
+   └── Report findings
+   DETECTION: Procedure mapping
+   BYPASS: Use alternate method
+
+4. GAP_ANALYSIS
+   WHAT: Identify detection gaps
+   HOW:
+   ├── Compare attack techniques vs detection
+   ├── Identify undetected techniques
+   ├── Prioritize gaps
+   └── Recommend improvements
+   DETECTION: Gap analysis
+   BYPASS: Use alternate method
+
+5. COVERAGE_MATRIX
+   WHAT: Generate coverage matrix
+   HOW:
+   ├── Create matrix of techniques vs detection
+   ├── Color code coverage
+   ├── Identify gaps
+   └── Report findings
+   DETECTION: Matrix generation
+   BYPASS: Use alternate method
 
 REPORTING (4):
-├── purple_team_report │ — Purple team engagement report
-├── detection_score    — Detection capability score
-├── improvement_plan   — Improvement recommendations
-└── metrics_dashboard  — Metrics visualization
 
-FALLBACK:
+1. PURPLE_TEAM_REPORT
+   WHAT: Purple team engagement report
+   HOW:
+   ├── Document all findings
+   ├── Include attack techniques
+   ├── Include detection results
+   ├── Include recommendations
+   └── Generate report
+   DETECTION: Report generation
+   BYPASS: Use alternate method
+
+2. DETECTION_SCORE
+   WHAT: Detection capability score
+   HOW:
+   ├── Calculate detection rate
+   ├── Score detection capability
+   ├── Identify strengths/weaknesses
+   └── Report score
+   DETECTION: Score calculation
+   BYPASS: Use alternate method
+
+3. IMPROVEMENT_PLAN
+   WHAT: Improvement recommendations
+   HOW:
+   ├── Analyze gaps
+   ├── Prioritize improvements
+   ├── Create action plan
+   └── Assign responsibilities
+   DETECTION: Plan generation
+   BYPASS: Use alternate method
+
+4. METRICS_DASHBOARD
+   WHAT: Metrics visualization
+   HOW:
+   ├── Collect metrics
+   ├── Create dashboard
+   ├── Visualize trends
+   └── Share with stakeholders
+   DETECTION: Dashboard creation
+   BYPASS: Use alternate method
+```
+
+**Fallback:**
 Alert Validation → Detection Rules → Log Coverage →
 SIEM Correlation → EDR Test → NDR Test → Report
-```
 
 ---
 
