@@ -3685,39 +3685,242 @@ Pretexting → Physical Access → ALERT
 
 ```
 WIFI (8):
-├── evil_twin          — Rogue AP with same SSID
-├── deauth_attack      — Deauthentication flood
-├── wpa3_attack        — WPA3 downgrade attack
-├── handshake_capture  — 4-way handshake capture
-├── pmkid_attack       — PMKID capture (no client)
-├── credential_harvest — Captive portal credential steal
-├── rogue_dhcp        — DHCP rogue server
-└── karma_attack       — Karma AP (respond to any SSID)
+
+1. EVIL_TWIN
+   WHAT: Create rogue AP dengan same SSID
+   HOW:
+   ├── Create rogue AP dengan SSID target
+   ├── Deauth clients dari legitimate AP
+   ├── Clients connect ke rogue AP
+   ├── MITM traffic
+   └── Harvest credentials
+   DETECTION: Wireless IDS
+   BYPASS: Use alternate method
+
+2. DEAUTH_ATTACK
+   WHAT: Deauthentication flood
+   HOW:
+   ├── Send deauth frames ke target
+   ├── Clients disconnected
+   ├── Clients reconnect ke rogue AP
+   └── Harvest credentials
+   DETECTION: Deauth detection
+   BYPASS: Use alternate method
+
+3. WPA3_ATTACK
+   WHAT: WPA3 downgrade attack
+   HOW:
+   ├── Force downgrade ke WPA2
+   ├── Capture handshake
+   ├── Crack password
+   └── Access network
+   DETECTION: WPA3 downgrade detection
+   BYPASS: Use alternate method
+
+4. HANDSHAKE_CAPTURE
+   WHAT: Capture 4-way handshake
+   HOW:
+   ├── Deauth client
+   ├── Client reconnects
+   ├── Capture handshake
+   ├── Crack offline
+   └── Get password
+   DETECTION: Handshake capture detection
+   BYPASS: Use alternate method
+
+5. PMKID_ATTACK
+   WHAT: PMKID capture (no client needed)
+   HOW:
+   ├── Send association request
+   ├── AP responds with PMKID
+   ├── Capture PMKID
+   ├── Crack offline
+   └── Get password
+   DETECTION: PMKID capture detection
+   BYPASS: Use alternate method
+
+6. CREDENTIAL_HARVEST
+   WHAT: Captive portal credential steal
+   HOW:
+   ├── Create captive portal
+   ├── Redirect clients ke portal
+   ├── Portal requests credentials
+   ├── Harvest credentials
+   └── Forward ke legitimate site
+   DETECTION: Captive portal detection
+   BYPASS: Use alternate method
+
+7. ROGUE_DHCP
+   WHAT: DHCP rogue server
+   HOW:
+   ├── Respond to DHCP requests
+   ├── Assign IP addresses
+   ├── Set gateway ke rogue
+   ├── MITM traffic
+   └── Harvest data
+   DETECTION: Rogue DHCP detection
+   BYPASS: Use alternate method
+
+8. KARMA_ATTACK
+   WHAT: Karma AP (respond to any SSID)
+   HOW:
+   ├── Respond to any SSID probe
+   ├── Client connects
+   ├── MITM traffic
+   └── Harvest data
+   DETECTION: Karma detection
+   BYPASS: Use alternate method
 
 BLUETOOTH (5):
-├── bt_scan            — Device discovery
-├── bt_sniff           — Traffic capture
-├── bt_inject          — Packet injection
-├── bt_spam            — Bluetooth spam (overwhelm target)
-└── bt_pairing         — Pairing attack
+
+1. BT_SCAN
+   WHAT: Device discovery
+   HOW:
+   ├── Scan for Bluetooth devices
+   ├── Enumerate device information
+   ├── Identify targets
+   └── Gather information
+   DETECTION: Bluetooth scanning
+   BYPASS: Use alternate method
+
+2. BT_SNIFF
+   WHAT: Traffic capture
+   HOW:
+   ├── Pair with target
+   ├── Capture Bluetooth traffic
+   ├── Decode packets
+   └── Extract data
+   DETECTION: Bluetooth sniffing
+   BYPASS: Use alternate method
+
+3. BT_INJECT
+   WHAT: Packet injection
+   HOW:
+   ├── Pair with target
+   ├── Inject malicious packets
+   ├── Execute commands
+   └── Access device
+   DETECTION: Bluetooth injection
+   BYPASS: Use alternate method
+
+4. BT_SPAM
+   WHAT: Bluetooth spam (overwhelm target)
+   HOW:
+   ├── Send multiple pairing requests
+   ├── Overwhelm target
+   ├── Cause denial of service
+   └── Disable Bluetooth
+   DETECTION: Bluetooth spam
+   BYPASS: Use alternate method
+
+5. BT_PAIRING
+   WHAT: Pairing attack
+   HOW:
+   ├── Force pairing with target
+   ├── Intercept pairing process
+   ├── Capture pairing data
+   └── Access device
+   DETECTION: Pairing attack
+   BYPASS: Use alternate method
 
 RFID/NFC (4):
-├── rfid_clone         — Proxmark3 clone
-├── rfid_emulate       — Proxmark3 emulate
-├── nfc_relay          — NFC relay attack
-└── nfc_dump           — NFC tag dump
+
+1. RFID_CLONE
+   WHAT: Clone RFID badge
+   HOW:
+   ├── Read badge dengan Proxmark3
+   ├── Extract badge data
+   ├── Write to blank badge
+   └── Use cloned badge
+   DETECTION: RFID cloning
+   BYPASS: Use alternate method
+
+2. RFID_EMULATE
+   WHAT: Emulate RFID badge
+   HOW:
+   ├── Read badge data
+   ├── Load ke Proxmark3
+   ├── Emulate badge
+   └── Use emulated badge
+   DETECTION: RFID emulation
+   BYPASS: Use alternate method
+
+3. NFC_RELAY
+   WHAT: NFC relay attack
+   HOW:
+   ├── Place reader near badge
+   ├── Relay data ke writer
+   ├── Writer presents ke reader
+   └── Access granted
+   DETECTION: NFC relay
+   BYPASS: Use alternate method
+
+4. NFC_DUMP
+   WHAT: NFC tag dump
+   HOW:
+   ├── Read NFC tag
+   ├── Extract data
+   ├── Analyze content
+   └── Use for further attacks
+   DETECTION: NFC reading
+   BYPASS: Use alternate method
 
 TOOLS (5):
-├── proxmark3          — RFID/NFC tool
-├── hackrf             — SDR (Software Defined Radio)
-├── wifi_pineapple     — WiFi attack platform
-├── bluetooth_sdr      — Bluetooth SDR
-└── uhf_reader         — UHF RFID reader
 
-FALLBACK:
+1. PROXMARK3
+   WHAT: RFID/NFC tool
+   HOW:
+   ├── Read RFID/NFC tags
+   ├── Clone tags
+   ├── Emulate tags
+   └── Relay attacks
+   DETECTION: Proxmark3 usage
+   BYPASS: Use alternate tool
+
+2. HACKRF
+   WHAT: SDR (Software Defined Radio)
+   HOW:
+   ├── Transmit/receive radio signals
+   ├── Capture wireless signals
+   ├── Replay signals
+   └── Jam signals
+   DETECTION: SDR usage
+   BYPASS: Use alternate tool
+
+3. WIFI_PINEAPPLE
+   WHAT: WiFi attack platform
+   HOW:
+   ├── Create rogue AP
+   ├── Deauth clients
+   ├── Capture handshakes
+   └── Harvest credentials
+   DETECTION: WiFi Pineapple detection
+   BYPASS: Use alternate tool
+
+4. BLUETOOTH_SDR
+   WHAT: Bluetooth SDR
+   HOW:
+   ├── Capture Bluetooth traffic
+   ├── Inject packets
+   ├── Analyze protocols
+   └── Exploit vulnerabilities
+   DETECTION: Bluetooth SDR usage
+   BYPASS: Use alternate tool
+
+5. UHF_READER
+   WHAT: UHF RFID reader
+   HOW:
+   ├── Read UHF RFID tags
+   ├── Extract data
+   ├── Clone tags
+   └── Use for access control
+   DETECTION: UHF reader usage
+   BYPASS: Use alternate tool
+```
+
+**Fallback:**
 Evil Twin → Deauth → Handshake → PMKID →
 Captive Portal → Bluetooth → RFID/NFC → ALERT
-```
 
 ---
 
