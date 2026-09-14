@@ -5157,36 +5157,207 @@ SIEM Correlation → EDR Test → NDR Test → Report
 
 ```
 IOC_GENERATION (6):
-├── file_ioc           — File hashes, paths, registry keys
-├── network_ioc        — IPs, domains, URLs
-├── email_ioc          — Email addresses, headers
-├── behavioral_ioc     — Process behaviors, API calls
-├── memory_ioc         — Memory artifacts
-└── cloud_ioc          — Cloud-specific IOCs
+
+1. FILE_IOC
+   WHAT: File hashes, paths, registry keys
+   HOW:
+   ├── Calculate file hashes (MD5, SHA1, SHA256)
+   ├── Identify file paths
+   ├── Find registry keys
+   └── Generate IOCs
+   DETECTION: IOC generation
+   BYPASS: Use alternate method
+
+2. NETWORK_IOC
+   WHAT: IPs, domains, URLs
+   HOW:
+   ├── Identify malicious IPs
+   ├── Find malicious domains
+   ├── Extract malicious URLs
+   └── Generate IOCs
+   DETECTION: IOC generation
+   BYPASS: Use alternate method
+
+3. EMAIL_IOC
+   WHAT: Email addresses, headers
+   HOW:
+   ├── Extract email addresses
+   ├── Analyze email headers
+   ├── Find malicious indicators
+   └── Generate IOCs
+   DETECTION: IOC generation
+   BYPASS: Use alternate method
+
+4. BEHAVIORAL_IOC
+   WHAT: Process behaviors, API calls
+   HOW:
+   ├── Monitor process behavior
+   ├── Track API calls
+   ├── Identify anomalous behavior
+   └── Generate IOCs
+   DETECTION: IOC generation
+   BYPASS: Use alternate method
+
+5. MEMORY_IOC
+   WHAT: Memory artifacts
+   HOW:
+   ├── Dump memory
+   ├── Extract artifacts
+   ├── Identify malicious patterns
+   └── Generate IOCs
+   DETECTION: IOC generation
+   BYPASS: Use alternate method
+
+6. CLOUD_IOC
+   WHAT: Cloud-specific IOCs
+   HOW:
+   ├── Monitor cloud logs
+   ├── Identify malicious activity
+   ├── Extract indicators
+   └── Generate IOCs
+   DETECTION: IOC generation
+   BYPASS: Use alternate method
 
 MITRE_MAPPING (4):
-├── technique_id       — MITRE technique IDs
-├── group_mapping      — Map to threat groups
-├── campaign_mapping   — Map to campaigns
-└── software_mapping   — Map to malware families
+
+1. TECHNIQUE_ID
+   WHAT: MITRE technique IDs
+   HOW:
+   ├── Identify attack techniques
+   ├── Map ke MITRE technique IDs
+   ├── Document mapping
+   └── Report findings
+   DETECTION: Technique mapping
+   BYPASS: Use alternate method
+
+2. GROUP_MAPPING
+   WHAT: Map to threat groups
+   HOW:
+   ├── Identify threat group
+   ├── Map techniques to group
+   ├── Document mapping
+   └── Report findings
+   DETECTION: Group mapping
+   BYPASS: Use alternate method
+
+3. CAMPAIGN_MAPPING
+   WHAT: Map to campaigns
+   HOW:
+   ├── Identify campaign
+   ├── Map techniques to campaign
+   ├── Document mapping
+   └── Report findings
+   DETECTION: Campaign mapping
+   BYPASS: Use alternate method
+
+4. SOFTWARE_MAPPING
+   WHAT: Map to malware families
+   HOW:
+   ├── Identify malware family
+   ├── Map techniques to malware
+   ├── Document mapping
+   └── Report findings
+   DETECTION: Software mapping
+   BYPASS: Use alternate method
 
 THREAT_FEED (5):
-├── osint_feed         — OSINT threat feeds
-├── commercial_feed    — Commercial threat intel
-├── government_feed    — Government/CERT feeds
-├── industry_feed      — Industry ISAC feeds
-└── dark_web_feed      — Dark web monitoring
+
+1. OSINT_FEED
+   WHAT: OSINT threat feeds
+   HOW:
+   ├── Subscribe to OSINT feeds
+   ├── Collect IOCs
+   ├── Validate IOCs
+   └── Integrate ke SIEM
+   DETECTION: Feed integration
+   BYPASS: Use alternate method
+
+2. COMMERCIAL_FEED
+   WHAT: Commercial threat intel
+   HOW:
+   ├── Subscribe to commercial feed
+   ├── Collect IOCs
+   ├── Validate IOCs
+   └── Integrate ke SIEM
+   DETECTION: Feed integration
+   BYPASS: Use alternate method
+
+3. GOVERNMENT_FEED
+   WHAT: Government/CERT feeds
+   HOW:
+   ├── Subscribe to government feeds
+   ├── Collect IOCs
+   ├── Validate IOCs
+   └── Integrate ke SIEM
+   DETECTION: Feed integration
+   BYPASS: Use alternate method
+
+4. INDUSTRY_FEED
+   WHAT: Industry ISAC feeds
+   HOW:
+   ├── Subscribe to ISAC feeds
+   ├── Collect IOCs
+   ├── Validate IOCs
+   └── Integrate ke SIEM
+   DETECTION: Feed integration
+   BYPASS: Use alternate method
+
+5. DARK_WEB_FEED
+   WHAT: Dark web monitoring
+   HOW:
+   ├── Monitor dark web
+   ├── Identify threats
+   ├── Collect IOCs
+   └── Integrate ke SIEM
+   DETECTION: Dark web monitoring
+   BYPASS: Use alternate method
 
 INTELLIGENCE_REPORT (4):
-├── threat_profile     — Threat actor profile
-├── capability_assess  — Capability assessment
-├── intent_assessment  — Intent assessment
-└── risk_assessment    — Risk assessment
 
-FALLBACK:
+1. THREAT_PROFILE
+   WHAT: Threat actor profile
+   HOW:
+   ├── Research threat actor
+   ├── Document capabilities
+   ├── Document intent
+   └── Create profile
+   DETECTION: Profile creation
+   BYPASS: Use alternate method
+
+2. CAPABILITY_ASSESS
+   WHAT: Capability assessment
+   HOW:
+   ├── Assess threat actor capabilities
+   ├── Document technical skills
+   ├── Document resources
+   └── Create assessment
+   DETECTION: Assessment creation
+   BYPASS: Use alternate method
+
+3. INTENT_ASSESSMENT
+   WHAT: Intent assessment
+   HOW:
+   ├── Assess threat actor intent
+   ├── Document motivations
+   ├── Document targets
+   └── Create assessment
+   DETECTION: Assessment creation
+   BYPASS: Use alternate method
+
+4. RISK_ASSESSMENT
+   WHAT: Risk assessment
+   HOW:
+   ├── Assess risk posed by threat actor
+   ├── Document likelihood
+   ├── Document impact
+   └── Create assessment
+   DETECTION: Assessment creation
+   BYPASS: Use alternate method
+```
+
+**Fallback:**
 IOC Generation → MITRE Mapping → Threat Feed →
 Intelligence Report → Distribution → Update Rules
-```
 
 ---
 
