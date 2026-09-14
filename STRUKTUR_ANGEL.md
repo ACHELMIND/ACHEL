@@ -757,37 +757,294 @@ DB-007   │ Registry dump                      │ Credential extraction
 ### 4.1 C2 Evasion & Stealth
 
 #### Syscall (7 methods)
+
 ```
-1. HELL'S GATE       — PEB walk → ntdll export → SSN extraction
-2. HALO'S GATE       — Similar, direct syscall via ntdll stubs
-3. TARTARUS GATE     — Manipulate return address → target syscall
-4. FRESHYCALLS       — Dynamic SSN extraction runtime
-5. SYSWHISPERS3      — Indirect syscall via syscall number
-6. INDIRECT SYSCALL  — Call legitimate stub → redirect
-7. RECYCLED GATE     — Reuse existing syscall → modify params
+1. HELL'S GATE
+   WHAT: Direct syscall tanpa touch ntdll.dll (bypass userland hooks)
+   HOW:
+   ├── Walk PEB → Ldr->InMemoryOrderModuleList
+   ├── Find ntdll.dll base address
+   ├── Parse export table → Find Nt* functions
+   ├── Extract syscall number (SSN) dari syscall stub
+   └── Execute syscall via assembly (syscall instruction)
+   WHY: EDR hooks ntdll userland → direct syscall bypass hooks
+   STEPS:
+   ├── 1. PEB := GetTEB()->ProcessEnvironmentBlock
+   ├── 2. LDR := PEB->Ldr
+   ├── 3. ntdll := LDR->InMemoryOrderModuleList (cari "ntdll.dll")
+   ├── 4. ExportTable := ntdll->ExportDirectory
+   ├── 5. SSN := *(ExportTable + offset) & 0xFFFF
+   └── 6. asm("mov r10, rcx; mov eax, SSN; syscall")
+
+2. HALO'S GATE
+   WHAT: Mirip Hell's Gate, tapi pakai ret address untuk skip hooks
+   HOW:
+   ├── Cari ntdll syscall stub
+   ├── Baca return address (skip hook trampoline)
+   ├── Ekstrak SSN dari legit stub
+   └── Execute via syscall
+   WHY: Jika Hell's Gate terdeteksi, ini alternatif
+   STEPS:
+   ├── 1. Find NtCreateFile address
+   ├── 2. Check prologue: if (mem[addr] == 0x4C || mem[addr] == 0xE9)
+   ├── 3. Skip trampoline → find legit syscall stub
+   ├── 4. Extract SSN dari legit stub
+   └── 5. Execute via syscall
+
+3. TARTARUS GATE
+   WHAT: Manipulate return address untuk redirect ke syscall stub
+   HOW:
+   ├── Allocate memory untuk shellcode
+   ├── Write syscall instruction
+   ├── Manipulate return address → point ke shellcode
+   └── Execute
+   WHY: Jika hook mendeteksi Hell's/Halo's Gate
+   STEPS:
+   ├── 1. Allocate RWX memory
+   ├── 2. Write: "mov r10, rcx; mov eax, SSN; syscall; ret"
+   ├── 3. Set return address ke allocated memory
+   └── 4. Execute function → redirects ke shellcode
+
+4. FRESHYCALLS
+   WHAT: Dynamic SSN extraction runtime tanpa hardcoded
+   HOW:
+   ├── Parse ntdll export table at runtime
+   ├── Ekstrak SSN secara dinamis
+   ├── Cache SSN untuk reuse
+   └── Execute via syscall
+   WHY: Hardcoded SSN berubah setiap Windows update
+   STEPS:
+   ├── 1. GetModuleHandle("ntdll.dll")
+   ├── 2. GetProcAddress(ntdll, "NtCreateFile")
+   ├── 3. SSN := *(addr + 0x4) & 0xFFFF  (offset 4-5 dari stub)
+   └── 4. syscall dengan extracted SSN
+
+5. SYSWHISPERS3
+   WHAT: Indirect syscall — shellcode di jalankan via thread hijacking
+   HOW:
+   ├── Generate syscall shellcode untuk semua Nt* functions
+   ├── Inject shellcode ke legit process
+   ├── Hijack thread → point ke shellcode
+   └── Execute
+   WHY: Bypass userland hooks DAN kernel callbacks
+   STEPS:
+   ├── 1. Generate sysWhispers3 payload (all syscalls)
+   ├── 2. Inject ke notepad.exe (CreateRemoteThread)
+   ├── 3. Hijack main thread → redirect ke payload
+   └── 4. Payload executes syscalls directly
+
+6. INDIRECT SYSCALL
+   WHAT: Call legitimate ntdll stub → redirect execution ke syscall
+   HOW:
+   ├── Call NtCreateFile (pass through hook)
+   ├── Hook executes → tetapi return address di-manipulate
+   ├── Return ke legit syscall instruction
+   └── Syscall executes
+   WHY: Hook hanya check parameter, tidak check return
+   STEPS:
+   ├── 1. Set return address ke syscall instruction
+   ├── 2. Call NtCreateFile (hook intercepts)
+   ├── 3. Hook processes → returns
+   ├── 4. Return redirects ke syscall instruction
+   └── 5. Syscall executes tanpa hook
+
+7. RECYCLED GATE
+   WHAT: Reuse existing syscall stub → modify parameter
+   HOW:
+   ├── Cari legit syscall stub (NtCreateFile)
+   ├── Modify parameter registers
+   ├── Execute stub
+   └── Parameter baru dieksekusi
+   WHY: Minimal footprint — tidak perlu allocate memory
+   STEPS:
+   ├── 1. Find NtCreateFile address
+   ├── 2. Modify RCX (first param) → new value
+   ├── 3. Modify RDX (second param) → new value
+   ├── 4. Call stub → executes dengan parameter baru
+   └── 5. Restore original registers
 ```
 
 **Fallback:** Hell's Gate → Halo's → Tartarus → FreshyCalls → SysWhispers3 → Indirect → Recycled → Standard API (higher risk)
 
 #### Anti-Analysis (15 methods)
+
 ```
-ANTI-DEBUG (5):   IsDebuggerPresent, CheckRemoteDebuggerPresent,
-                  NtGlobalFlag, Hardware BP check, Timing (RDTSC)
-ANTI-VM (5):      CPUID bit, MAC prefix, Registry keys,
-                  Device drivers, Process check
-ANTI-SANDBOX (5): Uptime <5min, Mouse no movement, Disk <60GB,
-                  Core <2, RAM <2GB
+ANTI-DEBUG (5):
+
+1. IsDebuggerPresent
+   WHAT: Cek PEB.BeingDebugged flag
+   HOW: Call GetProcAddress(kernel32, "IsDebuggerPresent") → call
+   DETECT: PEB offset 0x2 = 1 jika debug
+   BYPASS: Patch PEB → set offset 0x2 = 0
+
+2. CheckRemoteDebuggerPresent
+   WHAT: Cek apakah remote debugger attached
+   HOW: Call CheckRemoteDebuggerPresent(GetCurrentProcess(), &isDebug)
+   DETECT: isDebug = TRUE jika ada remote debugger
+   BYPASS: Patch return value → isDebug = FALSE
+
+3. NtGlobalFlag
+   WHAT: Cek NtGlobalFlag di PEB (berubah saat debug)
+   HOW: Read PEB->NtGlobalFlag
+   DETECT: Normal = 0x0, Debug = 0x70 (FLG_HEAP_ENABLE_TAIL_CHECK|FREE_CHECK|VALIDATE)
+   BYPASS: Patch NtGlobalFlag → 0x0
+
+4. Hardware BP Check
+   WHAT: Cek hardware breakpoint registers (DR0-DR7)
+   HOW: GetThreadContext(GetCurrentThread(), &ctx) → cek DR0-DR7
+   DETECT: DR0-DR7 != 0 = hardware breakpoint active
+   BYPASS: Set DR0-DR7 = 0
+
+5. Timing (RDTSC)
+   WHAT: Cek waktu executing (debugger = lambat)
+   HOW: __rdtsc() sebelum dan sesudah code block
+   DETECT: Drift > 100ms = kemungkinan debug
+   BYPASS: Tambah delay untuk normalize timing
+
+ANTI-VM (5):
+
+1. CPUID Hypervisor Bit
+   WHAT: Cek bit 31 ECX saat CPUID leaf 1
+   HOW: asm("cpuid") → cek ECX bit 31
+   DETECT: Bit 31 = 1 = hypervisor present (VMware/VBox/QEMU)
+   BYPASS: Patch CPUID → clear bit 31
+
+2. MAC Address Prefix
+   WHAT: Cek 3 byte pertama MAC address
+   HOW: GetAdaptersInfo() → cek MAC prefix
+   DETECT: VMware=00:0C:29, VBox=08:00:27, QEMU=52:54:00
+   BYPASS: Change MAC address via registry
+
+3. Registry Keys
+   WHAT: Cek registry keys VMware/VBox
+   HOW: RegOpenKeyEx(HKLM, "SOFTWARE\\VMware, Inc.\\VMware Tools")
+   DETECT: Key exists = VM
+   BYPASS: Delete key atau redirect ke non-existent path
+
+4. Device Drivers
+   WHAT: Cek driver files vmci.sys, VBoxGuest.sys
+   HOW: GetSystemDirectory() + FindFirstFile("vmci.sys")
+   DETECT: File exists = VM
+   BYPASS: Delete driver file atau hide
+
+5. Process Check
+   WHAT: Cek process vmtoolsd.exe, VBoxService.exe
+   HOW: CreateToolhelp32Snapshot → EnumProcesses
+   DETECT: Process running = VM
+   BYPASS: Terminate VM process atau hide dari snapshot
+
+ANTI-SANDBOX (5):
+
+1. Uptime < 5 min
+   WHAT: Cek system uptime (sandbox baru boot)
+   HOW: GetTickCount64() → convert ke menit
+   DETECT: Uptime < 300 detik = sandbox
+   BYPASS: Sleep 5+ menit sebelum execute
+
+2. Mouse No Movement
+   WHAT: Cek mouse cursor bergerak (sandbox = no mouse)
+   HOW: GetCursorPos() → cek perubahan X,Y
+   DETECT: X,Y tidak berubah = sandbox
+   BYPASS: Simulate mouse movement via SendInput
+
+3. Disk < 60GB
+   WHAT: Cek disk space (sandbox = kecil)
+   HOW: GetDiskFreeSpaceEx("C:\\") → cek total bytes
+   DETECT: Total < 60GB = sandbox
+   BYPASS: Mount virtual disk > 60GB
+
+4. Core < 2
+   WHAT: Cek jumlah CPU core (sandbox = 1 core)
+   HOW: GetSystemInfo() → dwNumberOfProcessors
+   DETECT: Cores < 2 = sandbox
+   BYPASS: Add virtual CPU core
+
+5. RAM < 2GB
+   WHAT: Cek RAM (sandbox = sedikit RAM)
+   HOW: GlobalMemoryStatusEx() → ullTotalPhys
+   DETECT: RAM < 2GB = sandbox
+   BYPASS: Add virtual RAM
 ```
 
 #### Process Injection (7 methods)
+
 ```
-1. CRT              — CreateRemoteThread
-2. APC              — QueueUserAPC
-3. PROCESS HOLLOWING— CreateProcess SUSPENDED → Unmap → Write → Resume
-4. THREAD HIJACKING — SuspendThread → SetThreadContext → ResumeThread
-5. MODULE STOMPING  — Load DLL → Overwrite .text → Execute
-6. REFLECTIVE DLL   — Load DLL from memory
-7. SECTION MAPPING  — CreateFileMapping → MapViewOfSection
+1. CRT (CreateRemoteThread)
+   WHAT: Inject shellcode ke process lain via CreateRemoteThread
+   HOW:
+   ├── OpenProcess(PROCESS_ALL_ACCESS, pid)
+   ├── VirtualAllocEx → allocate memory di target
+   ├── WriteProcessMemory → tulis shellcode
+   ├── CreateRemoteThread → point ke shellcode
+   └── Thread executes shellcode
+   DETECTION: Monitor CreateRemoteThread API call
+   BYPASS: Use alternate injection method
+
+2. APC (QueueUserAPC)
+   WHAT: Queue APC callback ke thread target
+   HOW:
+   ├── OpenProcess → EnumThreads
+   ├── Find Alertable thread
+   ├── VirtualAllocEx → allocate memory
+   ├── WriteProcessMemory → tulis shellcode
+   └── QueueUserAPC → queue ke thread
+   DETECTION: Monitor QueueUserAPC API call
+   BYPASS: Use alternate method
+
+3. PROCESS HOLLOWING
+   WHAT: Create process SUSPENDED → unmap image → write shellcode → resume
+   HOW:
+   ├── CreateProcess(SUSPENDED)
+   ├── NtUnmapViewOfSection → unmap legitimate image
+   ├── VirtualAllocEx → allocate new memory
+   ├── WriteProcessMemory → tulis shellcode
+   ├── SetThreadContext → update entry point
+   └── ResumeThread → execute
+   DETECTION: Monitor process creation + memory writes
+   BYPASS: Use alternate method
+
+4. THREAD HIJACKING
+   WHAT: Suspend thread → set context → resume
+   HOW:
+   ├── OpenThread → SuspendThread
+   ├── GetThreadContext → save context
+   ├── SetThreadContext → point RIP ke shellcode
+   └── ResumeThread → execute
+   DETECTION: Monitor thread context changes
+   BYPASS: Use alternate method
+
+5. MODULE STOMPING
+   WHAT: Load legit DLL → overwrite .text section → execute
+   HOW:
+   ├── LoadLibrary("mshtml.dll")
+   ├── GetProcAddress → find .text section
+   ├── VirtualProtect → PAGE_EXECUTE_READWRITE
+   ├── memcpy → overwrite with shellcode
+   └── CreateThread → point ke overwritten section
+   DETECTION: Monitor DLL loading + memory writes
+   BYPASS: Use alternate method
+
+6. REFLECTIVE DLL
+   WHAT: Load DLL from memory tanpa disk
+   HOW:
+   ├── Allocate RWX memory
+   ├── Write DLL bytes ke memory
+   ├── Parse PE headers → find DllMain
+   ├── Fix relocations → resolve imports
+   └── Call DllMain
+   DETECTION: Monitor in-memory DLL loading
+   BYPASS: Use alternate method
+
+7. SECTION MAPPING
+   WHAT: CreateFileMapping → MapViewOfSection ke target
+   HOW:
+   ├── CreateFileMapping(INVALID_HANDLE, PAGE_EXECUTE_READWRITE)
+   ├── MapViewOfFile → write shellcode
+   ├── OpenProcess target
+   ├── NtMapViewOfSection → map ke target process
+   └── CreateThread → execute
+   DETECTION: Monitor section mapping
+   BYPASS: Use alternate method
 ```
 
 #### Log Cleanup
@@ -807,39 +1064,309 @@ TLS fingerprint rotation → DNS rotation → VPN
 ### 4.2 Kerberos & Active Directory Attack
 
 #### Kerberos (12 methods)
+
 ```
-1.  GOLDEN TICKET    — KRBTGT hash → domain-wide, 10yr lifetime
-2.  SILVER TICKET    — Service hash → single service access
-3.  DIAMOND TICKET   — Modify PAC pada legitimate TGT
-4.  SAPPHIRE TICKET  — Modify TGT directly
-5.  SHADOW CRED      — msDS-KeyCredentialLink manipulation
-6.  KERBEROAST       — TGS request → offline crack (hashcat -m 13100)
-7.  AS-REP ROAST     — No preauth → AS-REP → crack (hashcat -m 18200)
-8.  PASS-THE-TICKET  — Extract TGT → inject
-9.  OVERPASS-HASH    — NTLM hash → TGT
-10. TICKET INJECT    — klist add / Rubeus import
-11. TICKET DUMP      — Mimikatz kerberos::list
-12. SKELETON KEY     — Patch lsass → universal password "mimikatz"
+1. GOLDEN TICKET
+   WHAT: Forge TGT dengan KRBTGT hash → domain-wide access
+   HOW:
+   ├── Dump KRBTGT hash: DCSync (lsadump::dcsync /krbtgt)
+   ├── Forge TGT dengan PAC containing:
+   │   ├── User SID
+   │   ├── Domain SID
+   │   ├── Group memberships (500 = Domain Admin)
+   │   └── Ticket flags (TGTDelegate, Forwardable)
+   ├── Sign TGT dengan KRBTGT key
+   └── Inject ke LSASS: kerberos::golden /krbtgt:hash
+   LIFETIME: 10 tahun (configurable)
+   DETECTION: Event ID 4768, 4769 (anomalous TGT)
+   BYPASS: Rotate KRBTGT password 2x
+
+2. SILVER TICKET
+   WHAT: Forge TGS dengan service hash → single service access
+   HOW:
+   ├── Get service hash: secretsdump /nthash service
+   ├── Forge TGS dengan:
+   │   ├── Service SID
+   │   ├── User SID
+   │   ├── Group memberships
+   │   └── Service-specific flags
+   ├── Sign TGS dengan service key
+   └── Inject: kerberos::golden /service:cifs /target:dc
+   LIFETIME: Default (10 jam)
+   DETECTION: Event ID 4769 (anomalous TGS)
+   BYPASS: Rotate service password
+
+3. DIAMOND TICKET
+   WHAT: Modify PAC pada legitimate TGT
+   HOW:
+   ├── Request legitimate TGT
+   ├── Decrypt PAC dengan KRBTGT key
+   ├── Modify PAC:
+   │   ├── Add Domain Admin SID
+   │   ├── Modify group memberships
+   │   └── Add extra SIDs
+   ├── Re-encrypt PAC
+   └── Inject modified TGT
+   DETECTION: PAC validation logs
+   BYPASS: Enable PAC validation
+
+4. SAPPHIRE TICKET
+   WHAT: Modify TGT directly tanpa decrypt PAC
+   HOW:
+   ├── Request legitimate TGT
+   ├── Modify TGT buffer (add extra bytes)
+   ├── Inject modified TGT
+   └── Kerberos stack processes modified TGT
+   DETECTION: Anomalous TGT structure
+   BYPASS: Validate TGT structure
+
+5. SHADOW CRED
+   WHAT: Add KeyCredential ke user object → certificate-based auth
+   HOW:
+   ├── Add KeyCredentialLink ke user's msDS-KeyCredentialLink
+   ├── Use Certify/PSPKI to generate certificate
+   ├── Use certificate for authentication
+   └── Access as target user
+   DETECTION: Event ID 5136 (directory object change)
+   BYPASS: Monitor msDS-KeyCredentialLink changes
+
+6. KERBEROAST
+   WHAT: Request TGS → offline crack password
+   HOW:
+   ├── Enumerate SPNs: setspn -T domain -Q */*
+   ├── Request TGS: Rubeus kerberoast /user:svc_sql
+   ├── Extract service ticket (kirbi format)
+   ├── Crack with hashcat: hashcat -m 13100 ticket.kirbi wordlist
+   └── Get plaintext password
+   DETECTION: Event ID 4769 (many TGS requests)
+   BYPASS: Use Group Managed Service Accounts (gMSA)
+
+7. AS-REP ROAST
+   WHAT: Target user tanpa pre-auth → crack AS-REP
+   HOW:
+   ├── Find users: Get-ADUser -Filter {DoesNotRequirePreAuth -eq $true}
+   ├── Request AS-REP: Rubeus asreproast /user:target
+   ├── Extract AS-REP hash
+   ├── Crack: hashcat -m 18200 asrep.hash wordlist
+   └── Get password
+   DETECTION: Event ID 4768 (AS-REP without pre-auth)
+   BYPASS: Require Kerberos pre-auth for all users
+
+8. PASS-THE-TICKET
+   WHAT: Extract TGT → inject ke session lain
+   HOW:
+   ├── Extract TGT: Rubeus dump /luid:0x3e7
+   ├── Save TGT ke file (ticket.kirbi)
+   ├── Inject: Rubeus ptt /ticket:ticket.kirbi
+   └── Access services dengan TGT
+   DETECTION: Event ID 4769 (anomalous TGS)
+   BYPASS: Use certificate-based auth
+
+9. OVERPASS-HASH
+   WHAT: NTLM hash → TGT tanpa password
+   HOW:
+   ├── Get NTLM hash: sekurlsa::msv
+   ├── Request TGT: Rubeus asktgt /user:admin /rc4:hash
+   ├── TGT received
+   └── Inject ke session
+   DETECTION: Event ID 4768 (RC4 encrypted)
+   BYPASS: Use AES keys only
+
+10. TICKET INJECT
+    WHAT: Inject ticket ke session via command line
+    HOW:
+    ├── klist add /user:admin /domain:corp /ticket:base64
+    ├── Atau: Rubeus ptt /ticket:base64
+    └── Ticket injected ke current session
+    DETECTION: Event ID 4769
+    BYPASS: Monitor ticket injection
+
+11. TICKET DUMP
+    WHAT: Dump all tickets dari LSASS
+    HOW:
+    ├── Mimikatz: kerberos::list
+    ├── Rubeus: Rubeus dump /nowrap
+    ├── Extract all TGTs and TGSs
+    └── Save ke files
+    DETECTION: LSASS access
+    BYPASS: Protect LSASS dengan PPL
+
+12. SKELETON KEY
+    WHAT: Patch LSASS → universal password "mimikatz"
+    HOW:
+    ├── Mimikatz: misc::skeleton
+    ├── LSASS patched → accepts any password
+    ├── "mimikatz" becomes universal password
+    └── All accounts accessible
+    DETECTION: LSASS memory modification
+    BYPASS: Use Credential Guard
 ```
 
 #### ADCS (16 ESC)
+
 ```
-ESC1:  Misconfigured template (client auth + SAN + low-priv enroll)
-ESC2:  Any Purpose EKU
-ESC3:  Certificate Request Agent EKU
-ESC4:  Vulnerable template ACL
-ESC5:  Vulnerable CA ACL
-ESC6:  EDITF_ATTRIBUTESUBJECTALTNAME2
-ESC7:  ManageCA/ManageCertificates rights
-ESC8:  HTTP enrollment + NTLM relay
-ESC9:  No security extension
-ESC10: Weak certificate mapping
-ESC11: Relay to NTLM enrollment
-ESC12: Relay to HTTP enrollment
-ESC13: Vulnerable application policy
-ESC14: Certificate mapping vulnerability
-ESC15: Schannel elevation
-ESC16: Security extension bypass
+ESC1: Misconfigured Template
+   WHAT: Certificate template allows client auth + SAN + low-priv enroll
+   HOW:
+   ├── Enumerate templates: Certify find /vulnerable
+   ├── Find template with:
+   │   ├── Client Authentication EKU
+   │   ├── mS-DS-Subject-Alt-Name allows SAN
+   │   └── Low-priv users can enroll
+   ├── Request certificate with SAN = Domain Admin
+   ├── Use certificate for authentication
+   └── Access as Domain Admin
+   DETECTION: Event ID 4886 (certificate request)
+   BYPASS: Remove SAN from template
+
+ESC2: Any Purpose EKU
+   WHAT: Template has "Any Purpose" EKU → can be used for anything
+   HOW:
+   ├── Find template with "Any Purpose" EKU
+   ├── Request certificate
+   ├── Use for any authentication
+   └── Access any service
+   DETECTION: Certificate with Any Purpose EKU
+   BYPASS: Remove Any Purpose EKU
+
+ESC3: Certificate Request Agent EKU
+   WHAT: Template with Request Agent EKU → can request on behalf of others
+   HOW:
+   ├── Find template with Certificate Request Agent EKU
+   ├── Request certificate for this template
+   ├── Use to request certificate on behalf of any user
+   └── Get certificate for Domain Admin
+   DETECTION: Certificate Request Agent usage
+   BYPASS: Remove Request Agent EKU
+
+ESC4: Vulnerable Template ACL
+   WHAT: Template ACL allows modification → can modify for ESC1
+   HOW:
+   ├── Find template where user has WriteDACL/WriteOwner
+   ├── Modify template to enable ESC1
+   ├── Request certificate with SAN = Domain Admin
+   └── Access as Domain Admin
+   DETECTION: Template modification events
+   BYPASS: Review template ACLs
+
+ESC5: Vulnerable CA ACL
+   WHAT: CA ACL allows low-priv users to manage
+   HOW:
+   ├── Find CA where user has ManageCA/ManageCertificates
+   ├── Use to modify CA settings
+   └── Issue certificates
+   DETECTION: CA management events
+   BYPASS: Review CA ACLs
+
+ESC6: EDITF_ATTRIBUTESUBJECTALTNAME2
+   WHAT: CA allows SAN in request → can specify any SAN
+   HOW:
+   ├── Check CA: certutil -getreg ca\EDITF_ATTRIBUTESUBJECTALTNAME2
+   ├── Request certificate with SAN = Domain Admin
+   ├── CA allows SAN override
+   └── Certificate issued with Domain Admin SAN
+   DETECTION: Certificate with SAN
+   BYPASS: Disable EDITF_ATTRIBUTESUBJECTALTNAME2
+
+ESC7: ManageCA/ManageCertificates Rights
+   WHAT: User has CA management rights
+   HOW:
+   ├── Enumerate CA permissions
+   ├── Find user with ManageCA or ManageCertificates
+   ├── Use to issue certificates
+   └── Access as any user
+   DETECTION: CA management events
+   BYPASS: Review CA permissions
+
+ESC8: HTTP Enrollment + NTLM Relay
+   WHAT: HTTP enrollment endpoint vulnerable to NTLM relay
+   HOW:
+   ├── Find HTTP enrollment: certsrv/certadsh
+   ├── NTLM relay to HTTP endpoint
+   ├── Relay NTLM credentials
+   ├── Certificate issued
+   └── Use certificate for authentication
+   DETECTION: NTLM relay events
+   BYPASS: Disable HTTP enrollment
+
+ESC9: No Security Extension
+   WHAT: Certificate without security extension → can be modified
+   HOW:
+   ├── Find template without security extension
+   ├── Request certificate
+   ├── Modify certificate
+   └── Use modified certificate
+   DETECTION: Certificate modification
+   BYPASS: Add security extension
+
+ESC10: Weak Certificate Mapping
+   WHAT: Weak mapping allows certificate to map to any user
+   HOW:
+   ├── Find weak mapping configuration
+   ├── Request certificate
+   ├── Map to Domain Admin
+   └── Access as Domain Admin
+   DETECTION: Anomalous certificate mapping
+   BYPASS: Enable strong certificate mapping
+
+ESC11: Relay to NTLM Enrollment
+   WHAT: NTLM relay to NTLM enrollment endpoint
+   HOW:
+   ├── Find NTLM enrollment endpoint
+   ├── NTLM relay to endpoint
+   ├── Certificate issued
+   └── Use for authentication
+   DETECTION: NTLM relay events
+   BYPASS: Disable NTLM enrollment
+
+ESC12: Relay to HTTP Enrollment
+   WHAT: NTLM relay to HTTP enrollment endpoint
+   HOW:
+   ├── Find HTTP enrollment endpoint
+   ├── NTLM relay to endpoint
+   ├── Certificate issued
+   └── Use for authentication
+   DETECTION: NTLM relay events
+   BYPASS: Disable HTTP enrollment
+
+ESC13: Vulnerable Application Policy
+   WHAT: Application policy can be exploited
+   HOW:
+   ├── Find vulnerable application policy
+   ├── Request certificate with policy
+   ├── Policy allows privilege escalation
+   └── Access as privileged user
+   DETECTION: Application policy usage
+   BYPASS: Review application policies
+
+ESC14: Certificate Mapping Vulnerability
+   WHAT: Certificate mapping can be manipulated
+   HOW:
+   ├── Find mapping vulnerability
+   ├── Request certificate
+   ├── Manipulate mapping
+   └── Access as any user
+   DETECTION: Mapping manipulation
+   BYPASS: Enable strong mapping
+
+ESC15: Schannel Elevation
+   WHAT: Schannel can be used for elevation
+   HOW:
+   ├── Find Schannel vulnerability
+   ├── Exploit Schannel
+   └── Elevate privileges
+   DETECTION: Schannel events
+   BYPASS: Update Schannel
+
+ESC16: Security Extension Bypass
+   WHAT: Security extension can be bypassed
+   HOW:
+   ├── Find bypass technique
+   ├── Request certificate
+   ├── Bypass security extension
+   └── Use certificate
+   DETECTION: Security extension bypass
+   BYPASS: Update security extensions
 ```
 
 #### AD Recon (8 modules)
@@ -950,23 +1477,285 @@ HR-007   │ UART console                       │ Serial access
 ### 5.1 Credential Theft
 
 ```
-LSASS (7):    Fork Dump, Minidump, Procdump, Nanodump,
-              PPL Bypass, SSP Injection, Hooking
-SAM (3):      Registry Dump, Hive Extract, VSS Extract
-BROWSER (5):  Chrome, Firefox, Edge, Brave, Opera
-DEV TOOLS (5): Claude Code, Cursor, GitHub Copilot, Windsurf, VS Code
-CRYPTO (84+): 65+ browser extension wallets (MetaMask, Phantom, etc.)
-              19+ desktop wallets (Exodus, Atomic, Electrum)
-GAMING (16+): Steam, Epic, Origin, Roblox, etc.
-VPN (9+):     NordVPN, ExpressVPN, Surfshark, etc.
-CLOUD (6):    AWS credentials/metadata, Azure MSAL/CLI, GCP ADC/CLI
-TOKEN (3):    Impersonation, Delegation, Primary
-CERT (2):     Store, Smartcard
-SESSION (4):  Instagram, TikTok, X, Spotify
-MFA (1):      TOTP/HOTP Token Harvester
-BIOMETRIC (3): FaceID, TouchID, Fingerprint
-EXCHANGE (4): Coinbase, Binance, Kraken, Bybit
-FALLBACK (4): MCE → DBS → ChromeElevator → RawCopy
+LSASS (7):
+
+1. FORK DUMP
+   WHAT: Fork process → dump LSASS memory dari child process
+   HOW:
+   ├── CreateProcess(lsass.exe) → SUSPENDED
+   ├── Fork child process
+   ├── Child reads parent memory (LSASS)
+   ├── MiniDumpWriteDump → save ke file
+   └── Decrypt offline dengan mimikatz
+   DETECTION: LSASS access, process creation
+   BYPASS: Use PPL bypass
+
+2. MINIDUMP
+   WHAT: MiniDump API → dump LSASS memory
+   HOW:
+   ├── OpenProcess(lsass.exe)
+   ├── MiniDumpWriteDump(handle, pid, file)
+   ├── Save .dmp file
+   └── Decrypt offline: mimikatz # sekurlsa::minidump lsass.dmp
+   DETECTION: LSASS access
+   BYPASS: Use nanodump
+
+3. PROCDUMP
+   WHAT: Sysinternals ProcDump → dump LSASS
+   HOW:
+   ├── procdump.exe -ma lsass.exe lsass.dmp
+   ├── ProcDump uses Microsoft-signed binary
+   └── Decrypt offline
+   DETECTION: ProcDump execution
+   BYPASS: Use alternate tool
+
+4. NANODUMP
+   WHAT: Minimal LSASS dump (16KB vs full dump)
+   HOW:
+   ├── Allocate small buffer (16KB)
+   ├── NtReadVirtualMemory → read LSASS
+   ├── Write to file
+   └── Decrypt offline
+   DETECTION: Smaller footprint, harder to detect
+   BYPASS: Use PPL bypass
+
+5. PPL BYPASS
+   WHAT: Bypass Protected Process Light (PPL) on LSASS
+   HOW:
+   ├── Load driver: vulnerable signed driver
+   ├── Driver bypasses PPL protection
+   ├── Access LSASS memory
+   └── Dump credentials
+   DETECTION: Driver loading, LSASS access
+   BYPASS: Use SSP injection
+
+6. SSP INJECTION
+   WHAT: Inject Security Support Provider → capture credentials
+   HOW:
+   ├── Register malicious SSP: LsaAddLogonProcess
+   ├── SSP intercepts all authentication
+   ├── Capture NTLM hashes, Kerberos tickets
+   └── Store ke file
+   DETECTION: SSP registration events
+   BYPASS: Use hooking
+
+7. HOOKING
+   WHAT: Hook authentication functions → intercept credentials
+   HOW:
+   ├── Hook LsaLogonUser, LsaCallAuthenticationPackage
+   ├── Intercept plaintext passwords
+   ├── Store ke file
+   └── Unhook setelah capture
+   DETECTION: API hooking detection
+   BYPASS: Use alternate method
+
+SAM (3):
+
+1. REGISTRY DUMP
+   WHAT: Dump SAM dan SYSTEM registry hives
+   HOW:
+   ├── reg save HKLM\SAM sam.hiv
+   ├── reg save HKLM\SYSTEM system.hiv
+   ├── Decrypt offline: secretsdump.py -sam sam.hiv -system system.hiv
+   └── Extract NTLM hashes
+   DETECTION: Registry access
+   BYPASS: Use hive extract
+
+2. HIVE EXTRACT
+   WHAT: Extract SAM/SYSTEM dari registry files
+   HOW:
+   ├── Copy C:\Windows\System32\config\SAM
+   ├── Copy C:\Windows\System32\config\SYSTEM
+   ├── Decrypt offline
+   └── Extract hashes
+   DETECTION: File access
+   BYPASS: Use VSS extract
+
+3. VSS EXTRACT
+   WHAT: Extract dari Volume Shadow Copy
+   HOW:
+   ├── Create VSS: vssadmin create shadow /for=C:
+   ├── Copy SAM/SYSTEM dari shadow copy
+   ├── Decrypt offline
+   └── Extract hashes
+   DETECTION: VSS creation
+   BYPASS: Use alternate method
+
+BROWSER (5):
+
+1. CHROME
+   WHAT: Decrypt Chrome stored passwords
+   HOW:
+   ├── Find: %LOCALAPPDATA%\Google\Chrome\User Data\Local State
+   ├── Get encryption key dari Local State (DPAPI)
+   ├── Find: %LOCALAPPDATA%\Google\Chrome\User Data\Default\Login Data
+   ├── Decrypt passwords dengan key
+   └── Extract: username, password, URL
+   DETECTION: Browser data access
+   BYPASS: Use alternate browser
+
+2. FIREFOX
+   WHAT: Extract Firefox stored passwords
+   HOW:
+   ├── Find: %APPDATA%\Mozilla\Firefox\Profiles\*.default-release
+   ├── Read key4.db → get encryption key
+   ├── Read logins.json → encrypted passwords
+   ├── Decrypt dengan key
+   └── Extract credentials
+   DETECTION: Browser data access
+   BYPASS: Use alternate browser
+
+3. EDGE
+   WHAT: Decrypt Edge stored passwords
+   HOW:
+   ├── Same as Chrome (Edge uses Chromium)
+   ├── %LOCALAPPDATA%\Microsoft\Edge\User Data\Local State
+   ├── %LOCALAPPDATA%\Microsoft\Edge\User Data\Default\Login Data
+   └── Decrypt passwords
+   DETECTION: Browser data access
+   BYPASS: Use alternate browser
+
+4. BRAVE
+   WHAT: Decrypt Brave stored passwords
+   HOW:
+   ├── Same as Chrome (Brave uses Chromium)
+   ├── %LOCALAPPDATA%\BraveSoftware\Brave-Browser\User Data
+   └── Decrypt passwords
+   DETECTION: Browser data access
+   BYPASS: Use alternate browser
+
+5. OPERA
+   WHAT: Decrypt Opera stored passwords
+   HOW:
+   ├── Same as Chrome (Opera uses Chromium)
+   ├── %APPDATA%\Opera Software\Opera Stable
+   └── Decrypt passwords
+   DETECTION: Browser data access
+   BYPASS: Use alternate browser
+
+DEV TOOLS (5):
+   Claude Code, Cursor, GitHub Copilot, Windsurf, VS Code
+   WHAT: Extract credentials dari developer tools
+   HOW:
+   ├── Find config files per tool
+   ├── Extract stored tokens/keys
+   └── Decrypt if encrypted
+   DETECTION: Config file access
+   BYPASS: Use alternate method
+
+CRYPTO (84+):
+   65+ browser extension wallets (MetaMask, Phantom, etc.)
+   19+ desktop wallets (Exodus, Atomic, Electrum)
+   WHAT: Extract cryptocurrency wallet keys
+   HOW:
+   ├── Browser wallets: Find extension storage → decrypt keys
+   ├── Desktop wallets: Find wallet files → decrypt seed phrase
+   ├── Extract private keys
+   └── Access funds
+   DETECTION: Wallet data access
+   BYPASS: Use alternate method
+
+GAMING (16+):
+   Steam, Epic, Origin, Roblox, etc.
+   WHAT: Extract gaming platform credentials
+   HOW:
+   ├── Find stored credentials per platform
+   ├── Extract session tokens
+   └── Access accounts
+   DETECTION: Credential access
+   BYPASS: Use alternate method
+
+VPN (9+):
+   NordVPN, ExpressVPN, Surfshark, etc.
+   WHAT: Extract VPN credentials
+   HOW:
+   ├── Find VPN config files
+   ├── Extract stored credentials
+   └── Access VPN accounts
+   DETECTION: Config file access
+   BYPASS: Use alternate method
+
+CLOUD (6):
+   AWS credentials/metadata, Azure MSAL/CLI, GCP ADC/CLI
+   WHAT: Extract cloud provider credentials
+   HOW:
+   ├── AWS: ~/.aws/credentials, metadata service (169.254.169.254)
+   ├── Azure: az account get-access-token, MSAL cache
+   ├── GCP: ~/.config/gcloud/credentials.db
+   └── Extract tokens, keys
+   DETECTION: Cloud credential access
+   BYPASS: Use alternate method
+
+TOKEN (3):
+   Impersonation, Delegation, Primary
+   WHAT: Extract Windows authentication tokens
+   HOW:
+   ├── Impersonation: ImpersonateLoggedOnUser
+   ├── Delegation: Delegate to service
+   └── Primary: Extract primary token
+   DETECTION: Token manipulation
+   BYPASS: Use alternate method
+
+CERT (2):
+   Store, Smartcard
+   WHAT: Extract certificates
+   HOW:
+   ├── Store: certutil -store My
+   ├── Smartcard: Read from smartcard reader
+   └── Extract private keys
+   DETECTION: Certificate access
+   BYPASS: Use alternate method
+
+SESSION (4):
+   Instagram, TikTok, X, Spotify
+   WHAT: Extract social media session tokens
+   HOW:
+   ├── Find session cookies/tokens
+   ├── Extract session IDs
+   └── Hijack sessions
+   DETECTION: Session token access
+   BYPASS: Use alternate method
+
+MFA (1):
+   TOTP/HOTP Token Harvester
+   WHAT: Harvest MFA tokens
+   HOW:
+   ├── Hook authenticator app
+   ├── Intercept TOTP generation
+   └── Capture tokens
+   DETECTION: MFA token interception
+   BYPASS: Use alternate method
+
+BIOMETRIC (3):
+   FaceID, TouchID, Fingerprint
+   WHAT: Bypass biometric authentication
+   HOW:
+   ├── FaceID: Use alternate method (passcode)
+   ├── TouchID: Use fingerprint copy
+   └── Fingerprint: Spoof fingerprint
+   DETECTION: Biometric bypass
+   BYPASS: Use alternate method
+
+EXCHANGE (4):
+   Coinbase, Binance, Kraken, Bybit
+   WHAT: Extract exchange credentials
+   HOW:
+   ├── Find exchange API keys
+   ├── Extract session tokens
+   └── Access trading accounts
+   DETECTION: Exchange credential access
+   BYPASS: Use alternate method
+
+FALLBACK (4):
+   MCE → DBS → ChromeElevator → RawCopy
+   WHAT: Fallback credential extraction methods
+   HOW:
+   ├── MCE: Mimikatz Credential Editor
+   ├── DBS: Database-backed storage
+   ├── ChromeElevator: Chrome privilege escalation
+   └── RawCopy: Raw disk copy of SAM/SYSTEM
+   DETECTION: Alternate extraction methods
+   BYPASS: Use standard methods
 ```
 
 ---
@@ -974,16 +1763,100 @@ FALLBACK (4): MCE → DBS → ChromeElevator → RawCopy
 ### 5.2 Collector / InfoStealer
 
 ```
-BROWSER (4):  Chrome, Firefox, Edge, Opera — password recovery
-SCREEN (2):   Capture (JPEG/PNG), Record (MP4)
-KEYLOG (1):   Keystroke capture (real-time)
-WIFI (1):     netsh wlan show profile
-WEBCAM (1):   Photo capture
-MICROPHONE (1): Audio recording
-CLIPBOARD (1): Clipboard monitoring
-FILE GRABBER (4): Document (PDF/DOCX/XLSX), Email (PST/OST),
-                  Chat (Discord/Slack), Messaging (WhatsApp/Signal)
-NETWORK (1):  Packet capture (PCAP)
+BROWSER (4):
+   Chrome, Firefox, Edge, Opera — password recovery
+   WHAT: Recover saved passwords dari browsers
+   HOW:
+   ├── Find browser profile directories
+   ├── Read password databases
+   ├── Decrypt passwords
+   └── Extract: URL, username, password
+   DETECTION: Browser data access
+   BYPASS: Use alternate method
+
+SCREEN (2):
+   Capture (JPEG/PNG), Record (MP4)
+   WHAT: Capture screen content
+   HOW:
+   ├── Capture: GetDC(NULL) → BitBlt → SaveImage
+   ├── Record: Windows Media Foundation → Video Capture
+   └── Save ke file
+   DETECTION: Screen capture API calls
+   BYPASS: Use alternate method
+
+KEYLOG (1):
+   Keystroke capture (real-time)
+   WHAT: Capture keystrokes
+   HOW:
+   ├── SetWindowsHookEx(WH_KEYBOARD_LL, callback)
+   ├── Intercept keyboard events
+   ├── Log keystrokes
+   └── Store ke file
+   DETECTION: Keyboard hook installation
+   BYPASS: Use alternate method
+
+WIFI (1):
+   netsh wlan show profile
+   WHAT: Extract saved WiFi passwords
+   HOW:
+   ├── netsh wlan show profiles
+   ├── netsh wlan show profile name="SSID" key=clear
+   └── Extract WiFi passwords
+   DETECTION: WiFi profile access
+   BYPASS: Use alternate method
+
+WEBCAM (1):
+   Photo capture
+   WHAT: Capture photo from webcam
+   HOW:
+   ├── Open webcam device
+   ├── Capture frame
+   └── Save as image
+   DETECTION: Webcam access
+   BYPASS: Use alternate method
+
+MICROPHONE (1):
+   Audio recording
+   WHAT: Record audio from microphone
+   HOW:
+   ├── Open audio device
+   ├── Record audio stream
+   └── Save as audio file
+   DETECTION: Microphone access
+   BYPASS: Use alternate method
+
+CLIPBOARD (1):
+   Clipboard monitoring
+   WHAT: Monitor clipboard content
+   HOW:
+   ├── SetClipboardViewer
+   ├── Monitor clipboard changes
+   ├── Read clipboard content
+   └── Store passwords, crypto addresses
+   DETECTION: Clipboard monitoring
+   BYPASS: Use alternate method
+
+FILE GRABBER (4):
+   Document (PDF/DOCX/XLSX), Email (PST/OST),
+   Chat (Discord/Slack), Messaging (WhatsApp/Signal)
+   WHAT: Grab sensitive files
+   HOW:
+   ├── Enumerate directories
+   ├── Filter by file type
+   ├── Copy files
+   └── Archive and exfiltrate
+   DETECTION: File enumeration
+   BYPASS: Use alternate method
+
+NETWORK (1):
+   Packet capture (PCAP)
+   WHAT: Capture network traffic
+   HOW:
+   ├── Open network interface
+   ├── Capture packets
+   └── Save as PCAP
+   DETECTION: Packet capture
+   BYPASS: Use alternate method
 ```
 
 ---
@@ -991,19 +1864,238 @@ NETWORK (1):  Packet capture (PCAP)
 ### 5.3 Destruction & Impact
 
 ```
-DATABASE (6):   DROP SCHEMA, DROP FK, AES_ENCRYPT (JADEPUFFER),
-                Corrupt Data (MAD-CAT), Delete Backup, Disable Recovery
-RANSOMWARE (4): Encrypt Files, Encrypt Database, Ransom Note,
-                Key Destroy (NOT STORED)
-WIPER (7):      Zero Overwrite (Lotus), Random (PathWiper),
-                MBR Destroy, MFT Destroy, Volume Dismount,
-                Restore Point Delete, USN Journal Clear
-AVAILABILITY (3): Service Stop, Process Kill, Network Flood
-IMPACT (4):     Blast Radius, Recovery Time, Business Impact, P0/P1 Scoring
+DATABASE (6):
 
-TIMING CHAIN: Credential (5m) → Exfil (10m) → DB Destroy (2m) →
-              File Encrypt (5m) → Log Cleanup (3m) → Self-destruct (1m)
-              Total: ~26 minutes
+1. DROP SCHEMA
+   WHAT: Delete entire database schema
+   HOW:
+   ├── Connect to database
+   ├── DROP SCHEMA public CASCADE
+   └── All tables, data deleted
+   DETECTION: Schema modification events
+   BYPASS: Backup before execution
+
+2. DROP FK
+   WHAT: Drop foreign key constraints
+   HOW:
+   ├── Identify foreign keys
+   ├── DROP CONSTRAINT constraint_name
+   └── Remove referential integrity
+   DETECTION: Constraint modification
+   BYPASS: Backup before execution
+
+3. AES_ENCRYPT (JADEPUFFER)
+   WHAT: Encrypt database data with AES → ransom
+   HOW:
+   ├── Generate AES key
+   ├── For each table: UPDATE SET column = AES_ENCRYPT(column, key)
+   ├── Store key securely (not on target)
+   └── Demand ransom for key
+   DETECTION: Mass data modification
+   BYPASS: Backup before execution
+
+4. CORRUPT DATA (MAD-CAT)
+   WHAT: Corrupt database data randomly
+   HOW:
+   ├── For each table: UPDATE SET column = RANDOM_BYTES(LENGTH(column))
+   ├── Random data overwrites
+   └── Data unrecoverable
+   DETECTION: Mass data modification
+   BYPASS: Backup before execution
+
+5. DELETE BACKUP
+   WHAT: Delete database backups
+   HOW:
+   ├── Find backup files
+   ├── Delete backup files
+   └── Prevent recovery
+   DETECTION: Backup file deletion
+   BYPASS: Offsite backups
+
+6. DISABLE RECOVERY
+   WHAT: Disable database recovery mechanisms
+   HOW:
+   ├── Disable transaction logging
+   ├── Disable point-in-time recovery
+   └── Prevent restoration
+   DETECTION: Recovery mechanism changes
+   BYPASS: Alternate recovery methods
+
+RANSOMWARE (4):
+
+1. ENCRYPT FILES
+   WHAT: Encrypt files with AES + RSA
+   HOW:
+   ├── Generate AES key per file
+   ├── Encrypt file: AES-256-CBC
+   ├── Encrypt AES key with RSA public key
+   ├── Save encrypted key alongside file
+   └── Delete original file
+   DETECTION: Mass file encryption
+   BYPASS: Backup before execution
+
+2. ENCRYPT DATABASE
+   WHAT: Encrypt entire database
+   HOW:
+   ├── Connect to database
+   ├── For each table: encrypt all columns
+   ├── Store encryption keys
+   └── Database unreadable
+   DETECTION: Database encryption events
+   BYPASS: Backup before execution
+
+3. RANSOM NOTE
+   WHAT: Create ransom note
+   HOW:
+   ├── Create README.txt in each directory
+   ├── Include payment instructions
+   ├── Include Bitcoin address
+   └── Include deadline
+   DETECTION: Ransom note creation
+   BYPASS: Don't execute
+
+4. KEY DESTROY
+   WHAT: Destroy encryption key (NOT STORED)
+   HOW:
+   ├── After encryption, destroy key
+   ├── Key never stored anywhere
+   └── Data permanently unrecoverable
+   DETECTION: Key destruction
+   BYPASS: Don't execute
+
+WIPER (7):
+
+1. ZERO OVERWRITE (LOTUS)
+   WHAT: Overwrite files with zeros
+   HOW:
+   ├── For each file: overwrite with 0x00 bytes
+   ├── Delete file
+   └── Data permanently destroyed
+   DETECTION: Mass file overwrites
+   BYPASS: Backup before execution
+
+2. RANDOM OVERWRITE (PATHWIPER)
+   WHAT: Overwrite files with random data
+   HOW:
+   ├── For each file: overwrite with random bytes
+   ├── Delete file
+   └── Data permanently destroyed
+   DETECTION: Mass file overwrites
+   BYPASS: Backup before execution
+
+3. MBR DESTROY
+   WHAT: Overwrite Master Boot Record
+   HOW:
+   ├── Open \\.\PhysicalDrive0
+   ├── Write random data to first 512 bytes
+   └── System won't boot
+   DETECTION: MBR modification
+   BYPASS: Don't execute
+
+4. MFT DESTROY
+   WHAT: Overwrite Master File Table
+   HOW:
+   ├── Find NTFS MFT location
+   ├── Overwrite MFT entries
+   └── File system destroyed
+   DETECTION: MFT modification
+   BYPASS: Don't execute
+
+5. VOLUME DISMOUNT
+   WHAT: Dismount volume
+   HOW:
+   ├── FindVolumeMountPoint
+   ├── DeleteVolumeMountPoint
+   └── Volume inaccessible
+   DETECTION: Volume dismount
+   BYPASS: Don't execute
+
+6. RESTORE POINT DELETE
+   WHAT: Delete system restore points
+   HOW:
+   ├── vssadmin delete shadows /all
+   └── System restore disabled
+   DETECTION: Shadow copy deletion
+   BYPASS: Don't execute
+
+7. USN JOURNAL CLEAR
+   WHAT: Clear USN change journal
+   HOW:
+   ├── fsutil usn deletejournal /d C:
+   └── Change tracking disabled
+   DETECTION: Journal clear
+   BYPASS: Don't execute
+
+AVAILABILITY (3):
+
+1. SERVICE STOP
+   WHAT: Stop critical services
+   HOW:
+   ├── sc stop [service_name]
+   ├── Stop database, web, mail services
+   └── Services unavailable
+   DETECTION: Service stop events
+   BYPASS: Don't execute
+
+2. PROCESS KILL
+   WHAT: Kill critical processes
+   HOW:
+   ├── taskkill /F /PID [pid]
+   ├── Kill database, application processes
+   └── Processes terminated
+   DETECTION: Process termination
+   BYPASS: Don't execute
+
+3. NETWORK FLOOD
+   WHAT: Flood network with traffic
+   HOW:
+   ├── Generate high-volume traffic
+   ├── Saturate network bandwidth
+   └── Network unavailable
+   DETECTION: Network anomaly
+   BYPASS: Don't execute
+
+IMPACT (4):
+
+1. BLAST RADIUS
+   WHAT: Calculate affected scope
+   HOW:
+   ├── Count affected systems
+   ├── Count affected users
+   ├── Count affected data
+   └── Calculate percentage
+   DETECTION: Impact assessment
+   BYPASS: Don't execute
+
+2. RECOVERY TIME
+   WHAT: Estimate recovery duration
+   HOW:
+   ├── Assess damage severity
+   ├── Estimate restoration time
+   ├── Calculate downtime cost
+   └── Report findings
+   DETECTION: Recovery assessment
+   BYPASS: Don't execute
+
+3. BUSINESS IMPACT
+   WHAT: Calculate business impact
+   HOW:
+   ├── Revenue loss calculation
+   ├── Reputation damage assessment
+   ├── Legal liability assessment
+   └── Compliance impact
+   DETECTION: Business assessment
+   BYPASS: Don't execute
+
+4. P0/P1 SCORING
+   WHAT: Score findings as P0/P1
+   HOW:
+   ├── P0: Critical (RCE, data breach, full compromise)
+   ├── P1: High (privilege escalation, lateral movement)
+   ├── P2: Medium (information disclosure)
+   └── P3: Low (minor issues)
+   DETECTION: Scoring system
+   BYPASS: Don't execute
 ```
 
 **Fallback Chain:**
