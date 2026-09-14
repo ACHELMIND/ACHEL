@@ -4167,34 +4167,210 @@ Jenkins → Dockerfile → Makefile → ALERT
 
 ```
 AUTH_ABUSE (8):
-├── oauth_redirect     — OAuth redirect URI manipulation
-├── oauth_scope        — OAuth scope escalation
-├── oauth_token        — OAuth token theft/reuse
-├── jwt_none           — JWT alg:none
-├── jwt_weak           — JWT weak secret (brute force)
-├── jwt_kid            — JWT kid injection
-├── jwt_key_confusion  — JWT RSA/HMAC key confusion
-└── api_key            — API key extraction/reuse
+
+1. OAUTH_REDIRECT
+   WHAT: OAuth redirect URI manipulation
+   HOW:
+   ├── Intercept OAuth flow
+   ├── Modify redirect_uri parameter
+   ├── Authorization code sent ke attacker
+   ├── Exchange code for token
+   └── Access user account
+   DETECTION: Redirect URI validation
+   BYPASS: Use alternate method
+
+2. OAUTH_SCOPE
+   WHAT: OAuth scope escalation
+   HOW:
+   ├── Request minimal scope
+   ├── After authorization, modify scope
+   ├── Add privileged scopes
+   └── Access elevated privileges
+   DETECTION: Scope validation
+   BYPASS: Use alternate method
+
+3. OAUTH_TOKEN
+   WHAT: OAuth token theft/reuse
+   HOW:
+   ├── Intercept access token
+   ├── Use token ke API
+   ├── Access user resources
+   └── Token reuse
+   DETECTION: Token reuse detection
+   BYPASS: Use alternate method
+
+4. JWT_NONE
+   WHAT: JWT alg:none attack
+   HOW:
+   ├── Intercept JWT
+   ├── Modify header: alg: "none"
+   ├── Modify payload
+   ├── Remove signature
+   └── API accepts token
+   DETECTION: Algorithm validation
+   BYPASS: Use alternate method
+
+5. JWT_WEAK
+   WHAT: JWT weak secret brute force
+   HOW:
+   ├── Intercept JWT
+   ├── Extract signature
+   ├── Brute force secret
+   ├── Found secret
+   └── Forge new tokens
+   DETECTION: Brute force detection
+   BYPASS: Use alternate method
+
+6. JWT_KID
+   WHAT: JWT kid injection
+   HOW:
+   ├── Intercept JWT
+   ├── Modify kid parameter
+   ├── Point ke file read (../../etc/passwd)
+   ├── Server reads file
+   └── Extract data
+   DETECTION: Kid parameter validation
+   BYPASS: Use alternate method
+
+7. JWT_KEY_CONFUSION
+   WHAT: JWT RSA/HMAC key confusion
+   HOW:
+   ├── Intercept JWT (RSA signed)
+   ├── Download public key
+   ├── Sign token with public key as HMAC secret
+   ├── Server validates with public key
+   └── Token accepted
+   DETECTION: Algorithm validation
+   BYPASS: Use alternate method
+
+8. API_KEY
+   WHAT: API key extraction/reuse
+   HOW:
+   ├── Find API keys di source code
+   ├── Extract API keys dari logs
+   ├── Reuse API key
+   └── Access API
+   DETECTION: API key reuse detection
+   BYPASS: Use alternate method
 
 BUSINESS_LOGIC (6):
-├── rate_bypass        — Rate limit bypass (race condition)
-├── price_manip        — Price manipulation
-├── quantity_manip     — Quantity manipulation
-├── idor               — Insecure Direct Object Reference
-├── function_leak      — Hidden function discovery
-└── workflow_abuse     — Workflow step bypass
+
+1. RATE_BYPASS
+   WHAT: Rate limit bypass (race condition)
+   HOW:
+   ├── Send concurrent requests
+   ├── Bypass rate limit
+   ├── Make unlimited requests
+   └── Brute force
+   DETECTION: Rate limit bypass detection
+   BYPASS: Use alternate method
+
+2. PRICE_MANIP
+   WHAT: Price manipulation
+   HOW:
+   ├── Intercept purchase request
+   ├── Modify price parameter
+   ├── Submit modified request
+   └── Purchase at reduced price
+   DETECTION: Price validation
+   BYPASS: Use alternate method
+
+3. QUANTITY_MANIP
+   WHAT: Quantity manipulation
+   HOW:
+   ├── Intercept purchase request
+   ├── Modify quantity (negative value)
+   ├── Submit modified request
+   └── Receive credit
+   DETECTION: Quantity validation
+   BYPASS: Use alternate method
+
+4. IDOR
+   WHAT: Insecure Direct Object Reference
+   HOW:
+   ├── Find API endpoint: /api/users/123
+   ├── Modify ID: /api/users/124
+   ├── Access other user's data
+   └── Data exposure
+   DETECTION: IDOR detection
+   BYPASS: Use alternate method
+
+5. FUNCTION_LEAK
+   WHAT: Hidden function discovery
+   HOW:
+   ├── Enumerate API endpoints
+   ├── Find hidden functions
+   ├── Access undocumented endpoints
+   └── Exploit vulnerabilities
+   DETECTION: API discovery detection
+   BYPASS: Use alternate method
+
+6. WORKFLOW_ABUSE
+   WHAT: Workflow step bypass
+   HOW:
+   ├── Find workflow steps
+   ├── Skip steps
+   ├── Access final step directly
+   └── Bypass validation
+   DETECTION: Workflow validation
+   BYPASS: Use alternate method
 
 INJECTION (5):
-├── nosql_api          — NoSQL injection via API
-├── graphql_introspect — GraphQL introspection
-├── graphql_depth      — GraphQL depth abuse (DoS)
-├── xml_entity         — XXE via API
-└── json_injection     — JSON parameter pollution
 
-FALLBACK:
+1. NOSQL_API
+   WHAT: NoSQL injection via API
+   HOW:
+   ├── Send malicious JSON
+   ├── Inject NoSQL operators
+   ├── Bypass authentication
+   └── Extract data
+   DETECTION: Input validation
+   BYPASS: Use alternate method
+
+2. GRAPHQL_INTROSPECT
+   WHAT: GraphQL introspection
+   HOW:
+   ├── Send introspection query
+   ├── Get full schema
+   ├── Find all types/queries
+   └── Exploit vulnerabilities
+   DETECTION: Introspection detection
+   BYPASS: Use alternate method
+
+3. GRAPHQL_DEPTH
+   WHAT: GraphQL depth abuse (DoS)
+   HOW:
+   ├── Send deeply nested query
+   ├── Server processes recursively
+   ├── Resource exhaustion
+   └── Denial of service
+   DETECTION: Query depth limiting
+   BYPASS: Use alternate method
+
+4. XML_ENTITY
+   WHAT: XXE via API
+   HOW:
+   ├── Send XML request
+   ├── Include external entity
+   ├── Server processes entity
+   └── Data extraction
+   DETECTION: XXE detection
+   BYPASS: Use alternate method
+
+5. JSON_INJECTION
+   WHAT: JSON parameter pollution
+   HOW:
+   ├── Send duplicate JSON keys
+   ├── Server processes both
+   ├── Unexpected behavior
+   └── Data manipulation
+   DETECTION: JSON validation
+   BYPASS: Use alternate method
+```
+
+**Fallback:**
 OAuth Redirect → Scope Escalation → JWT Attack → API Key →
 Rate Limit Bypass → IDOR → Injection → ALERT
-```
 
 ---
 
