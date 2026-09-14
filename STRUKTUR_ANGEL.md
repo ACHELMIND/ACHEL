@@ -5365,39 +5365,243 @@ Intelligence Report → Distribution → Update Rules
 
 ```
 IR_SIMULATION (6):
-├── breach_simulate    — Simulate data breach
-├── ransomware_sim     — Simulate ransomware attack
-├── ddos_sim           — Simulate DDoS attack
-├── insider_sim        — Simulate insider threat
-├── apt_sim            — Simulate APT attack
-└── supply_chain_sim   — Simulate supply chain attack
+
+1. BREACH_SIMULATE
+   WHAT: Simulate data breach
+   HOW:
+   ├── Create simulated breach scenario
+   ├── Execute breach techniques
+   ├── Test IR response
+   ├── Validate containment
+   └── Report findings
+   DETECTION: Breach simulation
+   BYPASS: Use alternate method
+
+2. RANSOMWARE_SIM
+   WHAT: Simulate ransomware attack
+   HOW:
+   ├── Create simulated ransomware
+   ├── Execute encryption (safe)
+   ├── Test IR response
+   ├── Validate recovery
+   └── Report findings
+   DETECTION: Ransomware simulation
+   BYPASS: Use alternate method
+
+3. DDOS_SIM
+   WHAT: Simulate DDoS attack
+   HOW:
+   ├── Create simulated DDoS
+   ├── Generate traffic
+   ├── Test IR response
+   ├── Validate mitigation
+   └── Report findings
+   DETECTION: DDoS simulation
+   BYPASS: Use alternate method
+
+4. INSIDER_SIM
+   WHAT: Simulate insider threat
+   HOW:
+   ├── Create simulated insider scenario
+   ├── Execute data exfiltration
+   ├── Test IR response
+   ├── Validate detection
+   └── Report findings
+   DETECTION: Insider simulation
+   BYPASS: Use alternate method
+
+5. APT_SIM
+   WHAT: Simulate APT attack
+   HOW:
+   ├── Create simulated APT scenario
+   ├── Execute advanced techniques
+   ├── Test IR response
+   ├── Validate detection
+   └── Report findings
+   DETECTION: APT simulation
+   BYPASS: Use alternate method
+
+6. SUPPLY_CHAIN_SIM
+   WHAT: Simulate supply chain attack
+   HOW:
+   ├── Create simulated supply chain scenario
+   ├── Execute compromise
+   ├── Test IR response
+   ├── Validate detection
+   └── Report findings
+   DETECTION: Supply chain simulation
+   BYPASS: Use alternate method
 
 FORENSIC_COUNTER (6):
-├── log_tamper         — Log tampering
-├── timestamp_manip    — Timestamp manipulation
-├── evidence_destruction│ — Evidence destruction
-├── memory_wipe        — Memory artifact wiping
-├── disk_wipe          — Disk artifact wiping
-└── network_cleanup    — Network artifact cleanup
+
+1. LOG_TAMPER
+   WHAT: Log tampering
+   HOW:
+   ├── Access system logs
+   ├── Modify log entries
+   ├── Delete log entries
+   └── Cover tracks
+   DETECTION: Log integrity monitoring
+   BYPASS: Use alternate method
+
+2. TIMESTAMP_MANIP
+   WHAT: Timestamp manipulation
+   HOW:
+   ├── Modify file timestamps
+   ├── Modify log timestamps
+   ├── Confuse forensics
+   └── Cover tracks
+   DETECTION: Timestamp monitoring
+   BYPASS: Use alternate method
+
+3. EVIDENCE_DESTRUCTION
+   WHAT: Evidence destruction
+   HOW:
+   ├── Identify evidence
+   ├── Destroy evidence
+   ├── Clean traces
+   └── Cover tracks
+   DETECTION: Evidence monitoring
+   BYPASS: Use alternate method
+
+4. MEMORY_WIPE
+   WHAT: Memory artifact wiping
+   HOW:
+   ├── Identify memory artifacts
+   ├── Wipe memory
+   ├── Clean traces
+   └── Cover tracks
+   DETECTION: Memory monitoring
+   BYPASS: Use alternate method
+
+5. DISK_WIPE
+   WHAT: Disk artifact wiping
+   HOW:
+   ├── Identify disk artifacts
+   ├── Wipe disk sectors
+   ├── Clean traces
+   └── Cover tracks
+   DETECTION: Disk monitoring
+   BYPASS: Use alternate method
+
+6. NETWORK_CLEANUP
+   WHAT: Network artifact cleanup
+   HOW:
+   ├── Identify network artifacts
+   ├── Clean network logs
+   ├── Remove connections
+   └── Cover tracks
+   DETECTION: Network monitoring
+   BYPASS: Use alternate method
 
 IR_PLAYBOOK (5):
-├── containment        — Containment procedures
-├── eradication        — Eradication procedures
-├── recovery           — Recovery procedures
-├── post_incident      — Post-incident review
-└── lessons_learned    — Lessons learned documentation
+
+1. CONTAINMENT
+   WHAT: Containment procedures
+   HOW:
+   ├── Isolate affected systems
+   ├── Block malicious traffic
+   ├── Preserve evidence
+   └── Prevent spread
+   DETECTION: Containment validation
+   BYPASS: Use alternate method
+
+2. ERADICATION
+   WHAT: Eradication procedures
+   HOW:
+   ├── Remove malware
+   ├── Close vulnerabilities
+   ├── Reset credentials
+   └── Clean systems
+   DETECTION: Eradication validation
+   BYPASS: Use alternate method
+
+3. RECOVERY
+   WHAT: Recovery procedures
+   HOW:
+   ├── Restore from backup
+   ├── Verify system integrity
+   ├── Monitor for reinfection
+   └── Return to operation
+   DETECTION: Recovery validation
+   BYPASS: Use alternate method
+
+4. POST_INCIDENT
+   WHAT: Post-incident review
+   HOW:
+   ├── Conduct review meeting
+   ├── Analyze incident
+   ├── Identify improvements
+   └── Document findings
+   DETECTION: Post-incident validation
+   BYPASS: Use alternate method
+
+5. LESSONS_LEARNED
+   WHAT: Lessons learned documentation
+   HOW:
+   ├── Document lessons learned
+   ├── Create improvement plan
+   ├── Update procedures
+   └── Share with team
+   DETECTION: Documentation validation
+   BYPASS: Use alternate method
 
 IR_TOOLS (5):
-├── volatility         — Memory forensics
-├── autopsy            — Disk forensics
-├── Wireshark           — Network forensics
-├── log_parser         — Log analysis
-└── timeline_tool      — Timeline analysis
 
-FALLBACK:
+1. VOLATILITY
+   WHAT: Memory forensics
+   HOW:
+   ├── Dump memory
+   ├── Analyze memory image
+   ├── Extract artifacts
+   └── Identify malicious activity
+   DETECTION: Memory forensics
+   BYPASS: Use alternate tool
+
+2. AUTOPSY
+   WHAT: Disk forensics
+   HOW:
+   ├── Acquire disk image
+   ├── Analyze disk
+   ├── Extract files
+   └── Identify malicious activity
+   DETECTION: Disk forensics
+   BYPASS: Use alternate tool
+
+3. WIRESHARK
+   WHAT: Network forensics
+   HOW:
+   ├── Capture network traffic
+   ├── Analyze packets
+   ├── Extract data
+   └── Identify malicious activity
+   DETECTION: Network forensics
+   BYPASS: Use alternate tool
+
+4. LOG_PARSER
+   WHAT: Log analysis
+   HOW:
+   ├── Collect logs
+   ├── Parse logs
+   ├── Analyze logs
+   └── Identify malicious activity
+   DETECTION: Log forensics
+   BYPASS: Use alternate tool
+
+5. TIMELINE_TOOL
+   WHAT: Timeline analysis
+   HOW:
+   ├── Create timeline
+   ├── Analyze events
+   ├── Identify patterns
+   └── Correlate activity
+   DETECTION: Timeline forensics
+   BYPASS: Use alternate tool
+```
+
+**Fallback:**
 Breach Sim → Ransomware Sim → Insider Sim → APT Sim →
 Log Tamper → Evidence Destruction → IR Report
-```
 
 ---
 
