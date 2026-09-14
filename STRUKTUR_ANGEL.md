@@ -90,7 +90,7 @@ ANGEL/
 > **"Parallel separation beats serial depth"**
 
 - Setiap komponen terpisah secara fungsional.
-- Semua komunikasi antar modul menggunakan event-driven architecture.
+- Semua komunikasi antar modul menggunakan event-driven architecture (protokol detail di **2.6 Event Bus Protocol**).
 - Jika tim blue team menangkap satu node, mereka tidak tahu node lain.
 
 ### 2.2 Diagram Arsitektur
@@ -141,14 +141,14 @@ ANGEL/
 
 | Kategori Layer (Section 3–10) | Tier Komponen Eksekusi          | Contoh Modul                                    |
 |-------------------------------|---------------------------------|-------------------------------------------------|
-| LAYER 1–5 (Modul Inti C2)     | TIER 2 (C2 Framework)           | C2_CORE, C2_DNS, C2_SMB, THE_DECOY              |
-| LAYER 6–10 (Modul Lanjutan)   | TIER 2 (C2 Framework)           | C2_WIREGUARD, IMPLANT_EDR, EXFIL_SMTP           |
-| LAYER 11–15 (Modul Ofensif)   | TIER 2/3 (C2/Orchestrator)      | SQLI_UNION, NO_SQL_INJECT, RCE_MEMORY            |
-| LAYER 16–21 (Infra & Pelaporan)| TIER 1 (Infrastructure)         | INFRA_PROXY, RAPORTER, CHAIN_CUSTODY            |
-| LAYER 22–25 (Modul Tambahan)  | TIER 2/3 (C2/Orchestrator)      | ESCAL_AD_CTP, PRIVESC_SSP                       |
-| LAYER 26–40 (Modul Tambahan v2)| TIER 3/4 (Orchestrator/Gateway) | CLOUD_AWS-DEEP, WEB_FW_BYPASS, APP_LFI         |
-| LAYER 41–60 (Modul Tambahan v3)| TIER 3/4 (Orchestrator/Gateway) | NET_IPV6, WEB_CSRF, CLOUD_MULTI                 |
-| LAYER 61–70 (Modul Tambahan v3.1)| TIER 3/4 (Orchestrator/Gateway)| MEM_CORRUPT, GRAPHQL_DEEP, NET_VLAN            |
+| LAYER 1–5 (Modul Inti C2)     | TIER 2 (C2 Framework)           | IMPLANT_WIN, LISTENER_HTTPS, LISTENER_DNS, SMB_BEACON, THE_DECOY |
+| LAYER 6–10 (Modul Lanjutan)   | TIER 2 (C2 Framework)           | EVASION_SYSCALL, EVASION_SLEEP, AD_KERBEROS, AD_ADCS, LATERAL_SMB, PERSIST_WIN32, HW_UEFI |
+| LAYER 11–15 (Modul Ofensif)   | TIER 2/3 (C2/Orchestrator)      | CRED_LSASS, CRED_BROWSER, COLLECTOR_SCREEN, DESTRUCT_WIPER, DESTRUCT_RANSOM, ORCH_INTENT |
+| LAYER 16–21 (Infra & Pelaporan)| TIER 1 (Infrastructure)         | INFRA_TERRAFORM, INFRA_ANSIBLE, REDIRECT_NGINX, VPN_WIREGUARD, OSINT_SUBDOMAIN, EXPLOIT_LFI, EXPLOIT_SSRF, EXPLOIT_RCE |
+| LAYER 22–25 (Modul Tambahan)  | TIER 2/3 (C2/Orchestrator)      | AUTH_JWT_BYPASS, AUTH_CRED_STUFF, NETEV_IP_ROTATE, DESTRUCT_FULLSCOPE, IMPLANT_GEN |
+| LAYER 26–40 (Modul Tambahan v2)| TIER 3/4 (Orchestrator/Gateway) | CLOUD_AWS_IAM, CLOUD_AZURE, CLOUD_GCP, WIRELESS_EVILTWIN, SUPPLY_NPM, API_OAUTH, API_JWT, MOB_IOS, PHYS_USB, ZEROTRUST_MFA, WEB3_REENTRANCY, MALWARE_STATIC, AI_PROMPT_INJECT |
+| LAYER 41–60 (Modul Tambahan v3)| TIER 3/4 (Orchestrator/Gateway) | NET_IPV6, NET_MDNS, IDP_SAML, DIR_LDAP, WEB_CSRF, WEB_REDIRECT, WEB_UPLOAD, WEB_TAKEOVER, WEB_CACHE, WEB_SMUGGLE, DNS_DNSSEC, CERT_FORGE, TLS13_ATTACK, ICS_SCADA, IOT_FIRMWARE, COMP_PCI, METHOD_OWASP, OPSEC_COMMS, CLOUD_MULTI |
+| LAYER 61–70 (Modul Tambahan v3.1)| TIER 3/4 (Orchestrator/Gateway)| EXPLOIT_MEMCORRUPT, EXPLOIT_DESER, LOGIC_RACE, GRAPHQL_DEEP, CRYPTO_PADDING, AUTH_PWDRESET, LOGIC_PAYMENT, GRPC_REFLECT, NET_VLAN, NET_ARP |
 | Orchestrator / Brain           | TIER 3 (Orchestrator)           | ORCH_INTENT, AGENT_LANGGRAPH                    |
 | API Gateway (auth/RBAC)        | TIER 4 (API Gateway)            | GATEWAY_AUTH, GATEWAY_RBAC                      |
 | Dashboard / Monitoring         | TIER 5 (Frontend)               | FRONT_DASHBOARD, FRONT_AGENT_CONSOLE            |
@@ -327,6 +327,68 @@ RECOVERY STATE MACHINE:
                           ┌──────────┐            ┌──────────┐
                           │  CLEANUP │            │  NORMAL  │
                           └──────────┘            └──────────┘
+```
+
+---
+
+### 2.6 Event Bus Protocol
+
+> **Definisi:** Bus event terpusat yang menghubungkan semua komponen (implant, listener, orchestrator, gateway, frontend, modul exploit). Semua komunikasi antar-modul WAJIB lewat bus ini — tidak ada panggilan langsung antar komponen agar prinsip "parallel separation" di 2.1 terjaga.
+
+```
+TOPIC STRUCTURE:   <domain>.<module>.<action>.<version>
+  contoh: c2.implant.registered.v1, exploit.sqli.result.v1,
+          orchestrator.decision.sent.v1, report.evidence.saved.v1
+
+DOMAIN YANG DIPAKAI:
+  c2            — implant, listener, beacon
+  orchestrator  — intent classifier, decision, langgraph agent
+  exploit       — modul ofensif (sqli, nosql, rce, container, cloud, ...)
+  infra         — proxy, redirector, vpn, terraform/ansible
+  ops           — cleanup, network evasion, implant gen
+  report        — evidence, chain-of-custody, reporting
+  gateway       — auth, rbac
+  frontend      — dashboard, agent console (read-only subscriber)
+
+EVENT PAYLOAD (JSON):
+{
+  "id": "uuid-v4",
+  "topic": "<domain>.<module>.<action>.<version>",
+  "timestamp": "RFC3339 UTC",
+  "source": "<module_id>",
+  "dest": "* | <module_id>",
+  "type": "event | command | result | sync",
+  "priority": 0-100,
+  "data": { ...payload per-topic... },
+  "trace_id": "<ref chain-of-custody ledger>"
+}
+
+SEMANTIK:
+  event   — fakta yang terjadi (implant registered, module failed)
+  command — instruksi ke modul tertentu (run_module, stop, sleep)
+  result  — output modul (diteruskan ke report/evidence)
+  sync    — sinkronisasi state antar node orchestrator
+
+KEBIJAKAN:
+- Publisher TIDAK tahu consumer (publish-and-forget), subscriber terikat per
+  prefix topic dengan wildcard (c2.*.result.v1, exploit.sqli.*).
+- QoS: at-least-once, retry 3x backoff exponensial (1s → 2s → 4s).
+- Ordering: FIFO per (topic, publisher).
+- Persistence: SQLite/PostgreSQL di komponen orchestrator (state store 1.6),
+  dipakai untuk replay event pasca-recovery.
+- Autentikasi: header HMAC `X-Angel-Sign` (HMAC-SHA256) di tiap event.
+- Retensi: TTL default 30 hari, auto-purge (prinsip anti-splunk).
+- Event bus TIDAK membawa payload besar; hasil besar lewat file disisipkan
+  sebagai referensi path di field data.attachment.
+- Semua event jenis "result" otomatis dicatat ke evidence ledger (CHAIN_CUSTODY).
+
+CONTRACTS PENTING (modul → bus):
+  c2.implant.registered.v1        → orchestrator mulai intent classification
+  orchestrator.decision.sent.v1   → gateway terbitkan token ekskusi
+  exploit.<modul>.start.v1        → orchestrator kirim command
+  exploit.<modul>.result.v1       → report simpan ke evidence ledger
+  ops.implant.gen.request.v1      → frontend minta build implant
+  frontend.dashboard.config.v1    → frontend render konfigurasi live
 ```
 
 ---
@@ -612,6 +674,31 @@ ENVIRONMENTS: Windows 10/11, Windows Server 2019/2022, Ubuntu 20.04/22.04,
 
 ### 3.2 The Decoy / Deception Layer
 
+#### Struktur File
+```
+decoy/
+├── nginx/
+│   ├── nginx.conf                     # main config, version spoof 1.24.0
+│   ├── redirects.conf                 # /admin/* dan /api/v1/* routing
+│   └── redirector.go                  # daemon routing ke target asli
+├── web/
+│   ├── index.html
+│   ├── login.html                     # credential harvest form
+│   ├── contact.html
+│   ├── blog/                          # konten SEO
+│   └── assets/{css,js,img}/
+├── srv/
+│   ├── route_decide.go                # klasifikasi agent/operator/scanner/browser
+│   ├── token_validate.go              # validasi X-Beacon-Token + X-Operator-Key
+│   ├── harvest.go                     # logging input login/contact
+│   └── safety.go                      # whitelist IP + rate-limit
+├── log/
+│   ├── visitor.log
+│   └── harvest.log
+└── tls/
+    └── cert_renew.go                  # valid SSL, auto-renewal
+```
+
 #### Visitor Routing
 ```
 VISITOR TYPE        → HEADER                    → ROUTE
@@ -679,6 +766,35 @@ D-008    │ Multiple failed token attempts      │ IP blocked
 
 ### 3.3 SQL Injection Engine
 
+#### Struktur File
+```
+sqli/
+├── detectors/
+│   ├── boolean_blind.go               # perbandingan respons 1=1 vs 1=2
+│   ├── time_based.go                  # pg_sleep / SLEEP() timing
+│   ├── error_based.go                 # extractvalue/updatexml + error parse
+│   ├── union_based.go                 # col count + UNION SELECT
+│   ├── stacked.go                     # stacked query
+│   ├── oob_dns.go                     # exfil via DNS
+│   ├── oob_http.go                    # exfil via HTTP callback
+│   └── oob_icmp.go                    # exfil via ICMP
+├── payloads/
+│   ├── mysql.go                       # database() / version() / @@hostname
+│   ├── postgresql.go                  # current_database() / pg_sleep
+│   ├── mssql.go                       # db_name() / WAITFOR DELAY
+│   ├── oracle.go                      # dbms_pipe / utl_http OOB
+│   └── sqlite.go                      # sqlite_master dump
+├── waf_bypass/
+│   ├── hex.go │ char_func.go │ unicode.go
+│   ├── double_url.go │ case_var.go │ comment.go
+│   ├── whitespace.go │ json_body.go │ graphql_param.go
+│   ├── xml_param.go │ multipart.go │ ua_rotate.go
+└── engine/
+    ├── scheduler.go                   # urutan teknik + fallback
+    ├── parser.go                      # ekstraksi hasil
+    └── result.go                      # input ke event bus exploit.sqli.result.v1
+```
+
 #### Detectors (8 methods)
 ```
 1. BOOLEAN-BLIND    — ' AND 1=1-- / ' AND 1=2-- (compare response)
@@ -721,6 +837,34 @@ SQLITE:     load_extension, ATTACH DATABASE, sqlite_master
 ---
 
 ### 3.4 NoSQL Injection Engine
+
+#### Struktur File
+```
+nosql/
+├── mongo/
+│   ├── auth_bypass.go                 # $ne / $gt / $regex login bypass
+│   ├── boolean_blind.go
+│   ├── time_based.go                  # $where + sleep()
+│   ├── js_inject.go                   # server-side JavaScript
+│   ├── lookup_exfil.go                # $lookup aggregation exfil
+│   └── error_based.go
+├── elasticsearch/
+│   ├── query_inject.go                # term/query DSL injection
+│   ├── aggregation_exfil.go
+│   └── script_inject.go
+├── couchdb/
+│   ├── auth_bypass.go
+│   └── js_inject.go
+├── redis/
+│   ├── cmd_inject.go                  # raw command injection
+│   └── key_dump.go
+├── cassandra/
+│   ├── cql_inject.go                  # CQL injection
+│   └── user_extract.go
+└── engine/
+    ├── scheduler.go                   # urutan teknik + fallback
+    └── result.go                      # input ke event bus exploit.nosql.result.v1
+```
 
 ```
 MONGODB (6):     auth bypass ($ne/$gt), boolean blind, time-based,
@@ -769,6 +913,35 @@ NS-007   │ Cassandra CQL injection            │ Data extraction
 ---
 
 ### 3.5 Database Post-Exploitation
+
+#### Struktur File
+```
+dbpost/
+├── oracle/
+│   ├── java_obj.go                    # Java object inject + compile
+│   ├── khunt_cmd.go                   # khunt + command exec
+│   ├── khunt_hash.go                  # khunthash credential crack
+│   ├── khunt_fs.go                    # khuntfs file system access
+│   ├── khunt_unzip.go                 # unzip payload unpack
+│   └── registry_dump.go
+├── mysql/
+│   ├── udf_install.go                 # sys_exec/sys_eval plugin
+│   ├── user_extract.go
+│   └── fs_access.go
+├── postgresql/
+│   ├── copy_program.go                # COPY TO PROGRAM RCE
+│   ├── pg_shadow.go                   # pg_shadow credential extract
+│   └── fs_access.go
+├── mssql/
+│   ├── xp_cmdshell.go
+│   ├── clr_assembly.go                # load .NET assembly
+│   ├── sql_logins.go
+│   └── fs_access.go
+└── common/
+    ├── backup_enum.go                 # backup mechanism discovery
+    ├── vault_cred.go                  # vault credential grab
+    └── admin_persist.go               # admin persistence (event bus sync)
+```
 
 ```
 ORACLE:    Java object inject → compile → KhuntCmd → KhuntHash →
@@ -4767,7 +4940,7 @@ USB_ATTACKS (5):
    WHAT: Malicious USB drop
    HOW:
    ├── Create malicious USB
-   ├── Label USB诱惑 (e.g., "Salary Q4 2024")
+   ├── Beri label menarik (e.g., "Salary Q4 2024")
    ├── Drop di public area
    ├── Victim plugs USB
    └── Payload executes
@@ -6649,27 +6822,169 @@ Data Poison → Jailbreak → API Abuse → Safety Bypass → ALERT
 
 ```
 NDP_ATTACKS (5):
-├── ra_spoof           — Router Advertisement spoofing
-├── ns_flood           — Neighbor Solicitation flood
-├── dad_attack         — Duplicate Address Detection DoS
-├── redirect_attack    — ICMPv6 Redirect manipulation
-└── smurf_ipv6         — ICMPv6 Smurf attack
+
+1. ra_spoof
+   WHAT: Router Advertisement spoofing to hijack IPv6 client routing
+   HOW:
+   ├── Identify IPv6 hosts via multicast ping or passive sniffing
+   ├── Send crafted Router Advertisement dengan attacker sebagai default gateway
+   ├── Set short Router Lifetime untuk memaksa adopsi segera
+   ├── Redirect victim traffic melalui prefix/MTU flags
+   └── Capture traffic atau lakukan man-in-the-middle
+   DETECTION: RA FloodGuard, SEND (SEcure Neighbor Discovery)
+   BYPASS: Use Router Advertisement with high precedence
+
+2. ns_flood
+   WHAT: Neighbor Solicitation flood untuk exhaust resource NDP cache router
+   HOW:
+   ├── Flood target dengan spoofed Neighbor Solicitation packets
+   ├── Generate banyak unresolved IPv6 target addresses
+   ├── Force NDP cache exhaustion dan CPU router
+   └── Disrupt neighbor resolution untuk host legitimate
+   DETECTION: NDP cache monitoring, rate limiting
+   BYPASS: Use multicast-targeted NS flood
+
+3. dad_attack
+   WHAT: Duplicate Address Detection DoS terhadap alamat SLAAC korban
+   HOW:
+   ├── Monitor DAD Neighbor Solicitation untuk tentative address korban
+   ├── Respond dengan Neighbor Advertisement yang mengklaim address in use
+   ├── Victim abandon tentative address assignment
+   └── Block korban mendapat alamat yang valid secara berulang
+   DETECTION: DAD failure logs, ND monitoring
+   BYPASS: Use optimistic DAD bypass
+
+4. redirect_attack
+   WHAT: ICMPv6 Redirect manipulation untuk mengarahkan traffic korban
+   HOW:
+   ├── Send ICMPv6 Redirect ke victim mengklaim better next-hop
+   ├── Arahkan korban ke gateway yang dikuasai attacker
+   ├── Reroute traffic menuju jaringan target
+   └── Intercept atau deny traffic korban
+   DETECTION: ICMP redirect filtering, SEND validation
+   BYPASS: Use RPL-based route injection
+
+5. smurf_ipv6
+   WHAT: ICMPv6 Smurf amplification via multicast echo requests
+   HOW:
+   ├── Send ICMPv6 Echo Request ke ff02::1 dengan spoofed victim source
+   ├── Semua host multicast group membalas ke victim
+   ├── Amplify traffic menuju alamat korban
+   └── Saturasi link bandwidth dan CPU korban
+   DETECTION: ICMPv6 amplification monitoring
+   BYPASS: Use MLD-targeted amplification
 
 DNSV6 (4):
-├── dnsv6_spoof        — DNS64/NAT64 spoofing
-├── dnsv6_poison       — DNS cache poisoning via IPv6
-├── dnsv6_exfil        — DNS exfiltration over IPv6
-└── dnsv6_tunnel       — IPv6-in-IPv4 tunnel
+
+1. dnsv6_spoof
+   WHAT: DNS64/NAT64 spoofing untuk membajak resolusi IPv6-ke-IPv4
+   HOW:
+   ├── Poison response AAAA melalui DNS64 resolver
+   ├── Inject attacker IPv6 prefix ke synthesized AAAA answers
+   ├── Victim terhubung ke endpoint NAT64 attacker
+   └── Intercept traffic aplikasi korban
+   DETECTION: AAAA response validation
+   BYPASS: Use DHCPv6 option 108 hijack
+
+2. dnsv6_poison
+   WHAT: DNS cache poisoning via AAAA records IPv6
+   HOW:
+   ├── Craft spoofed DNS response dengan bogus AAAA record
+   ├── Guess transaction ID dan source port resolver
+   ├── Poison recursive resolver cache untuk domain target
+   └── Victim resolve ke alamat IPv6 attacker
+   DETECTION: DNS transaction ID randomization, DNSSEC
+   BYPASS: Use IPv6 fragmentation-based poisoning
+
+3. dnsv6_exfil
+   WHAT: DNS exfiltration data melalui AAAA queries IPv6
+   HOW:
+   ├── Encode data curian ke subdomain labels
+   ├── Kirim DNS queries ke authoritative server attacker
+   ├── Attacker server decode dan reassemble data
+   └── Exfiltrate lewat traffic DNS yang diizinkan
+   DETECTION: Unusual DNS query volume/entropy monitoring
+   BYPASS: Use EDNS0 padding or slow drip exfil
+
+4. dnsv6_tunnel
+   WHAT: IPv6-in-IPv4 DNS tunneling sebagai covert channel
+   HOW:
+   ├── Establish client dan server tunnel endpoints
+   ├── Encode tunneled packets ke dalam DNS queries/responses
+   ├── Bypass egress filter jaringan IPv4-only
+   └── Carry arbitrary traffic melalui DNS
+   DETECTION: DNS packet size/query rate anomaly detection
+   BYPASS: Use TXT record tunneling variant
 
 TRANSITION_ABUSE (4):
-├── teredo_abuse       — Teredo tunnel exploitation
-├── isatap_abuse       — ISATAP tunnel exploitation
-├── 6to4_abuse         — 6to4 tunnel exploitation
-└── dual_stack         — Dual-stack protocol confusion
+
+1. teredo_abuse
+   WHAT: Teredo tunnel exploitation untuk bypass filter IPv4
+   HOW:
+   ├── Enable Teredo client pada host IPv4-only
+   ├── Tunnel traffic IPv6 melalui UDP 3544
+   ├── Bypass egress firewall filtering
+   └── Jangkau target IPv6 yang dibatasi
+   DETECTION: Teredo traffic detection, UDP 3544 monitoring
+   BYPASS: Use 6to4 variant
+
+2. isatap_abuse
+   WHAT: ISATAP tunnel exploitation untuk akses internal IPv6
+   HOW:
+   ├── Map alamat IPv4 ke interface ID ISATAP
+   ├── Gunakan link-local ISATAP untuk menjangkau router
+   ├── Bypass ACL IPv4 via 6in4 encapsulation
+   └── Pivot ke service internal IPv6-only
+   DETECTION: ISATAP protocol 41 monitoring
+   BYPASS: Use manual 6in4 tunnel
+
+3. 6to4_abuse
+   WHAT: 6to4 anycast relay exploitation
+   HOW:
+   ├── Gunakan 6to4 relay (192.88.99.1)
+   ├── Encap IPv6 dalam IPv4 (protocol 41)
+   ├── Bypass network ACLs dan access controls
+   └── Route ke jaringan IPv6 dari host IPv4-only
+   DETECTION: Protocol 41 filtering
+   BYPASS: Use ISATAP variant
+
+4. dual_stack
+   WHAT: Dual-stack protocol confusion untuk bypass security controls
+   HOW:
+   ├── Identifikasi host dual-stack dengan konektivitas v4 dan v6
+   ├── Asumsikan kontrol IPv6 lebih lemah dari egress filter IPv4
+   ├── Exfiltrate atau pivot melalui jalur IPv6
+   └── Bypass monitoring yang hanya mencakup IPv4
+   DETECTION: IPv6 visibility gaps, dual-stack traffic logging
+   BYPASS: Force v6-first stack preference
 
 FALLBACK:
 RA Spoof → NS Flood → DNSv6 Spoof → Tunnel Abuse →
 Dual Stack → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+IPv6 disabled on target           │ 1. Fallback to IPv4 chain
+                                  │ 2. Use NAT64 path only
+                                  │ 3. Re-log and alert
+ICMPv6 filtered (RFC4890)         │ 1. Switch to passive scan
+                                  │ 2. Use DHCPv6/SLAAC capture
+                                  │ 3. Continue recon
+SEND or CGA deployed              │ 1. Withdraw from NDP spoofing
+                                  │ 2. Pivot to DHCPv6 exhaustion
+                                  │ 3. Alert operator
+ULA scope across segments         │ 1. Segregate attack per scope
+                                  │ 2. Refine targets
+                                  │ 3. Recompute fallback
+RA overridden by real router      │ 1. Increase prefix precedence
+                                  │ 2. Rapid RA burst
+                                  │ 3. Fall back to redirect
+Routed v6, no link-local          │ 1. Use tunnel proxy path
+                                  │ 2. Attack from connected segment
+                                  │ 3. Alert operator
 ```
 
 ---
@@ -6678,31 +6993,192 @@ Dual Stack → ALERT
 
 ```
 MDNS (4):
-├── mdns_spoof         — mDNS response spoofing
-├── mdns_rebind        — DNS rebinding via mDNS
-├── mdns_info_leak     — Service information disclosure
-└── mdns_hijack        — mDNS name resolution hijack
+
+1. mdns_spoof
+   WHAT: mDNS response spoofing untuk memalsukan resolusi host/service lokal
+   HOW:
+   ├── Listen pada 224.0.0.251:5353 untuk mDNS queries
+   ├── Kirim spoofed mDNS response lebih cepat dari host asli
+   ├── Poison cache korban dengan IP attacker
+   ├── Victim terhubung ke service attacker
+   └── Capture credentials atau lakukan mitm
+   DETECTION: mDNS response anomaly detection
+   BYPASS: Use cache poisoning with TTL 0 responses
+
+2. mdns_rebind
+   WHAT: DNS rebinding via mDNS untuk mengakses service internal
+   HOW:
+   ├── Register malicious service dengan hostname public
+   ├── Tunggu korban melakukan resolve via mDNS
+   ├── Rebind hostname ke IP internal taget
+   └── Abuse same-origin policy untuk mengakses internal service
+   DETECTION: mDNS query/reply monitoring
+   BYPASS: Use IPv6 mDNS rebinding variant
+
+3. mdns_info_leak
+   WHAT: Service information disclosure via passive mDNS sniffing
+   HOW:
+   ├── Sniff multicast mDNS announcements
+   ├── Kumpulkan service type, instance, TXT records
+   ├── Map hostname, OS, dan service pada jaringan
+   └── Feed hasil recon ke attack chain
+   DETECTION: Multicast traffic logging
+   BYPASS: Use passive recon via LLMNR
+
+4. mdns_hijack
+   WHAT: Pembajakan resolusi mDNS melalui shared DNS-SD search domain
+   HOW:
+   ├── Announce attacker service di local DNS-SD domain
+   ├── Respond terhadap .local dan _tcp queries
+   ├── Redirect korban ke printer/AirPlay instance malicious
+   └── Intercept traffic AirDrop/Print/Chromecast
+   DETECTION: Service announcement monitoring (Bonjour guard)
+   BYPASS: Use legacy DNS-SD spoofing
 
 LLMNR (4):
-├── llmnr_poison       — LLMNR poisoning (Responder)
-├── llmnr_relay        — LLMNR to SMB relay
-├── llmnr_capture      — Hash capture via LLMNR
-└── llmnr_spoof        — LLMNR response spoofing
+
+1. llmnr_poison
+   WHAT: LLMNR poisoning dengan Responder untuk menangkap NTLM hashes
+   HOW:
+   ├── Enable LLMNR listener (UDP 5355)
+   ├── Respond ke name queries yang tak ter-resolve dengan IP attacker
+   ├── Victim melakukan NTLMv2 authentication ke SMB attacker
+   ├── Capture hash lalu crack (hashcat)
+   └── Gunakan cleartext password untuk lateral movement
+   DETECTION: Disable LLMNR, monitor multicast DNS logs
+   BYPASS: Use NBT-NS poisoning fallback
+
+2. llmnr_relay
+   WHAT: LLMNR to SMB relay tanpa cracking
+   HOW:
+   ├── Poison LLMNR queries seperti llmnr_poison
+   ├── Relay NTLM captured ke service SMB target
+   ├── Authenticate ke target dengan SMB signing disabled
+   └── Eksekusi command atau akses file target
+   DETECTION: Enforce SMB signing pada semua endpoint
+   BYPASS: Use HTTP relay variant
+
+3. llmnr_capture
+   WHAT: Hash capture via LLMNR authenticated protocols
+   HOW:
+   ├── Answer LLMNR queries dengan HTTP/SMB server attacker
+   ├── Paksa korban authenticate ke attacker
+   ├── Capture NTLMv2 hashes pada logs
+   └── Feed hash ke offline crack atau relay
+   DETECTION: LLMNR traffic monitoring
+   BYPASS: Use WPAD probe capture
+
+4. llmnr_spoof
+   WHAT: LLMNR response spoofing untuk impersonasi service
+   HOW:
+   ├── Reply ke LLMNR queries dengan spoofed source
+   ├── Impersonasi hostname file/server
+   ├── Redirect korban ke share malicious
+   └── Harvest credentials atau kirim payload
+   DETECTION: LLMNR response validation
+   BYPASS: Use multicast cache poisoning
 
 NBTNS (4):
-├── nbtns_poison       — NetBIOS name service poisoning
-├── nbtns_relay        — NBT-NS to SMB relay
-├── nbtns_capture      — Hash capture via NBT-NS
-└── nbtns_spoof        — NBT-NS response spoofing
+
+1. nbtns_poison
+   WHAT: NetBIOS Name Service (NBT-NS) poisoning
+   HOW:
+   ├── Listen pada UDP 137 untuk NetBIOS name queries
+   ├── Respond dengan IP attacker terhadap unresolved names
+   ├── Victim mengirim NTLM auth ke attacker
+   ├── Capture hashes
+   └── Crack atau relay credentials yang tertangkap
+   DETECTION: NetBIOS traffic monitoring
+   BYPASS: Use LLMNR poisoning fallback
+
+2. nbtns_relay
+   WHAT: NBT-NS to SMB relay
+   HOW:
+   ├── Poison NetBIOS name resolution
+   ├── Relay authentication ke target SMB
+   ├── Bypass signing atau gunakan CIFS relay
+   └── Eksekusi command pada target yang di-relay
+   DETECTION: Enforce SMB signing
+   BYPASS: Use MSSQL relay variant
+
+3. nbtns_capture
+   WHAT: Hash capture via NBT-NS broadcasts
+   HOW:
+   ├── Sniff NetBIOS broadcast name registrations
+   ├── Respond ke name queries dengan IP attacker
+   ├── Capture NTLMv2 hashes dari korban auth
+   └── Gunakan hash untuk offline cracking
+   DETECTION: Broadcast logging dan monitoring
+   BYPASS: Use multicast mDNS capture
+
+4. nbtns_spoof
+   WHAT: NBT-NS response spoofing
+   HOW:
+   ├── Forge NetBIOS name resolution responses
+   ├── Redirect resource queries ke attacker
+   ├── Impersonasi file shares dan service
+   └── Intercept akses resource korban
+   DETECTION: NBT-NS response audit
+   BYPASS: Use .local hostname spoofing
 
 WPAD (3):
-├── wpad_poison        — WPAD.dat poisoning
-├── wpad_mitm          — WPAD man-in-the-middle
-└── wpad_exploit       — WPAD auto-proxy exploitation
+
+1. wpad_poison
+   WHAT: WPAD.dat poisoning untuk hijack proxy auto-detection
+   HOW:
+   ├── Serve wpad.dat malicious via HTTP
+   ├── Reply ke WPAD proxy autodiscovery queries
+   ├── Victim fetch proxy config malicious
+   ├── Route seluruh proxy traffic melalui attacker
+   └── Capture credentials HTTP/HTTPS
+   DETECTION: Block WPAD, audit WPAD service (3498)
+   BYPASS: Use PAC file cache poisoning
+
+2. wpad_mitm
+   WHAT: WPAD man-in-the-middle proxy interception
+   HOW:
+   ├── Enforce proxy config pada korban
+   ├── Intercept traffic web korban
+   ├── Inject content atau capture credentials
+   ├── Log sensitive sessions
+   └── Modifikasi response secara silent
+   DETECTION: Proxy config redundancy check
+   BYPASS: Use environment proxy override
+
+3. wpad_exploit
+   WHAT: WPAD auto-proxy exploitation untuk traffic redirection
+   HOW:
+   ├── Plant malicious proxy script di autodiscovery domain
+   ├── Paksa korban load attacker PAC
+   ├── Redirect host tertentu ke attacker
+   └── Bypass direct internet access control
+   DETECTION: PAC integrity verification
+   BYPASS: Use DHCP-based WPAD supply
 
 FALLBACK:
 mDNS Poison → LLMNR Poison → NBT-NS Poison →
 WPAD Poison → NTLM Relay → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+LLMNR/NBT-NS disabled             │ 1. Rely on mDNS-only vector
+                                  │ 2. Enable WPAD fallback
+                                  │ 3. Alert operator
+SMB signing enforced              │ 1. Switch to HTTP relay
+                                  │ 2. Use LDAP/MSSQL relay
+                                  │ 3. Log partial success
+Multicast queries blocked         │ 1. Use broadcast NBT probes
+                                  │ 2. Targeted hostname queries
+                                  │ 3. Alert operator
+Hash uncrackable                  │ 1. Relay directly
+                                  │ 2. Use mitm proxy path
+                                  │ 3. Log hash for later
+Network-capture noise high        │ 1. Pre-seed cache with names
+                                  │ 2. Filter on victim IP
+                                  │ 3. Retry failed queries
 ```
 
 ---
@@ -6711,29 +7187,190 @@ WPAD Poison → NTLM Relay → ALERT
 
 ```
 SAML (6):
-├── saml_xml_inject     — XML signature wrapping
-├── saml_assertion_replay│ — Assertion replay attack
-├── saml_xxe           — XXE in SAML request
-├── saml_signature_bypass│ — Signature validation bypass
-├── saml_misconfig     — SAML misconfiguration
-└── saml_idp_attack    — Identity provider attack
+
+1. saml_xml_inject
+   WHAT: XML signature wrapping untuk memanipulasi SAML assertions
+   HOW:
+   ├── Intercept valid SAML response
+   ├── Insert element malicious sambil menjaga signature asli
+   ├── Reference signed element dari forged context
+   └── Kirim modified assertion sebagai legitimate
+   DETECTION: XML canonicalization validation
+   BYPASS: Use enveloped signature stripping
+
+2. saml_assertion_replay
+   WHAT: SAML assertion replay attack
+   HOW:
+   ├── Capture valid SAML assertion
+   ├── Replay assertion ke SP sebelum expire
+   ├── Bypass session establishment atau autentikasi
+   └── Dapatkan akses dengan reused identity
+   DETECTION: One-time assertion validation, NotBefore/NotOnOrAfter
+   BYPASS: Use assertion in different step combination
+
+3. saml_xxe
+   WHAT: XXE dalam SAML request parsing
+   HOW:
+   ├── Kirim SAML request dengan external entity reference
+   ├── Resolve external DTD untuk membaca file
+   ├── Exfiltrate isi file atau SSRF
+   └── Probe internal resources
+   DETECTION: Disable external entity resolution
+   BYPASS: Use parameter entity variant
+
+4. saml_signature_bypass
+   WHAT: Signature validation bypass via algorithm confusion
+   HOW:
+   ├── Cari endpoint SAML yang menerima unsigned assertions
+   ├── Swap signing algorithm atau strip signature
+   ├── Bypass verification pada service provider
+   └── Kirim assertion yang sepenuhnya dikuasai attacker
+   DETECTION: Enforce signature algorithm allowlist
+   BYPASS: Use RSA-to-HMAC key confusion
+
+5. saml_misconfig
+   WHAT: Eksploitasi misconfiguration SAML (default cert, permissive parsing)
+   HOW:
+   ├── Test validators yang menerima multiple certificates
+   ├── Eksploitasi default signing certificates yang diketahui
+   ├── Abuse issuer confusion antar tenant
+   └── Forge assertion dengan cert yang diterima
+   DETECTION: Certificate trust configuration audit
+   BYPASS: Use tenant sprawl confusion
+
+6. saml_idp_attack
+   WHAT: Identity provider attack terhadap alur plug-in SP-ke-IdP
+   HOW:
+   ├── Target endpoint dan admin console IdP
+   ├── Abuse IdP-initiated SSO flows
+   ├── Forge atau leak signing material IdP
+   └── Mint valid assertions untuk impersonasi
+   DETECTION: IdP signing key monitoring
+   BYPASS: Use JIT provisioning abuse
 
 OIDC (5):
-├── oidc_redirect      — Redirect URI manipulation
-├── oidc_token_leak    — Token leakage via referrer
-├── oidc_state_bypass  — State parameter bypass
-├── oidc_nonce_bypass  — Nonce validation bypass
-└── oidc_mixup         — OIDC mix-up attack
+
+1. oidc_redirect
+   WHAT: Redirect URI manipulation untuk intercept OIDC code
+   HOW:
+   ├── Cari pola redirect_uri yang diizinkan
+   ├── Register attacker redirect URI yang cocok dengan rule
+   ├── Initiate OIDC authorization flow
+   ├── Terima authorization code pada URI attacker
+   └── Exchange code menjadi token (public flow)
+   DETECTION: Strict exact redirect_uri validation
+   BYPASS: Use base-URI confusion
+
+2. oidc_token_leak
+   WHAT: Token leakage via Referer header
+   HOW:
+   ├── Letakkan URL attacker pada halaman korban
+   ├── Victim navigate dengan URL berisi code/token
+   ├── Referer header membawa code/token ke attacker
+   └── Attacker membaca token yang bocor
+   DETECTION: Referrer-Policy enforcement
+   BYPASS: Use fragment-based leak variant
+
+3. oidc_state_bypass
+   WHAT: State parameter bypass pada alur login OIDC
+   HOW:
+   ├── Remove atau nullify parameter state
+   ├── Initiate login tanpa CSRF binding token
+   ├── Paksa korban authenticate dengan nilai attacker
+   └── Bind identitas korban ke session attacker
+   DETECTION: Mandatory state validation
+   BYPASS: Use PKCE-only session binding
+
+4. oidc_nonce_bypass
+   WHAT: Nonce validation bypass pada ID token replay
+   HOW:
+   ├── Capture ID token lalu strip atau swap nonce
+   ├── Replay token pada relying party
+   ├── Jika nonce tidak diverifikasi, impersonasi target
+   └── Pertahankan session yang dipalsukan
+   DETECTION: Rigorous nonce verification
+   BYPASS: Use opaque token swap
+
+5. oidc_mixup
+   WHAT: OIDC mix-up attack dengan mengganti authorization server
+   HOW:
+   ├── Daftarkan attacker IdP sebagai issuer tambahan
+   ├── Switch authorization flow korban ke attacker IdP
+   ├── Terima code yang diterbitkan tenant attacker
+   └── Gunakan code di RP korban dengan issuer confusion
+   DETECTION: Strict iss (issuer) identification
+   BYPASS: Use silent-authentication confusion
 
 OAUTH (4):
-├── oauth_code_steal   — Authorization code theft
-├── oauth_token_forge  — Access token forgery
-├── oauth_scope_escal  — Scope escalation
-└── oauth_refresh_hijack│ — Refresh token hijack
+
+1. oauth_code_steal
+   WHAT: Pencurian OAuth authorization code via redirect atau XSS
+   HOW:
+   ├── Phish korban via client dengan redirect malicious
+   ├── Curi authorization code
+   ├── Exchange code sebelum expiry
+   └── Akses resource korban dengan stolen token
+   DETECTION: Code binding ke PKCE verifier
+   BYPASS: Use device code flow abuse
+
+2. oauth_token_forge
+   WHAT: OAuth access token forgery via weak signing/key confusion
+   HOW:
+   ├── Test crafted token signature
+   ├── Confuse RS256 ke HS256 symmetric key
+   ├── Forge access token yang telah ditandatangani
+   └── Akses protected API sebagai user arbitrer
+   DETECTION: Algorithm allowlist enforcement pada RS
+   BYPASS: Use none algorithm fallback
+
+3. oauth_scope_escal
+   WHAT: OAuth scope escalation via token augmentation
+   HOW:
+   ├── Dapatkan access token scope rendah
+   ├── Coba refresh/request dengan scope lebih tinggi
+   ├── Swap scope claim pada authorization server
+   ├── Re-request scope terluas yang diperbolehkan
+   └── Akses endpoint privileged
+   DETECTION: Client scope consent validation
+   BYPASS: Use dynamic scope injection
+
+4. oauth_refresh_hijack
+   WHAT: OAuth refresh token hijack dan abuse rotasi
+   HOW:
+   ├── Curi refresh token via storage XSS atau logs
+   ├── Reuse refresh token untuk access token baru
+   ├── Eksploitasi rotasi lemah (reuse tetap valid)
+   └── Pertahankan token refresh pada session korban
+   DETECTION: Refresh token rotation + reuse detection
+   BYPASS: Use client credentials token capture
 
 FALLBACK:
 SAML XXE → Assertion Replay → Signature Bypass →
 OAuth Code Steal → Token Forge → OIDC Redirect → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Strict SP signature validation   │ 1. Switch to IdP-initiated flow
+                                  │ 2. Abuse JIT provisioning
+                                  │ 3. Alert operator
+Assertion replay detected         │ 1. Rotate NotBefore/audience
+                                  │ 2. Reuse fresh assertion
+                                  │ 3. Log partial success
+Nonce/PKCE enforced               │ 1. Pre-generate token path
+                                  │ 2. Use open redirect bypass
+                                  │ 3. Fallback to code capture
+Redirect URI exact-match          │ 1. Register attacker subdomain
+                                  │ 2. Use open redirect chain
+                                  │ 3. Alert operator
+IdP validates issuer strictly     │ 1. Use ADFS tenant confusion
+                                  │ 2. Exploit scope escalation
+                                  │ 3. Alert operator
+Signing key rotation              │ 1. Fallback to scope escalation
+                                  │ 2. Use token replay window
+                                  │ 3. Log partial success
 ```
 
 ---
@@ -6742,22 +7379,136 @@ OAuth Code Steal → Token Forge → OIDC Redirect → ALERT
 
 ```
 LDAP_ATTACKS (6):
-├── ldap_filter_inject — Filter injection (|(uid=*))(|(password=*))
-├── ldap_null_bind     — Null bind authentication bypass
-├── ldap_wildcard      — Wildcard injection
-├── ldap_boolean       — Boolean-based blind LDAP injection
-├── ldap_time_based    — Time-based blind LDAP injection
-└── ldap_error_based   — Error-based data extraction
+
+1. ldap_filter_inject
+   WHAT: Filter injection (|(uid=*))(|(password=*)) untuk bypass autentikasi
+   HOW:
+   ├── Inject metacharacters ke field username/password
+   ├── Craft filter yang mengubah logika bind (|(uid=*))(|(password=*))
+   ├── Neutralize concatenation filter server-side
+   └── Authenticate sebagai unintended binds atau bypass
+   DETECTION: Input escaping dan filter whitelist
+   BYPASS: Use trailing * wildcard variant
+
+2. ldap_null_bind
+   WHAT: Null bind authentication bypass LDAP
+   HOW:
+   ├── Submit bind request dengan DN/password kosong
+   ├── Jika directory mengizinkan unauthenticated simple bind
+   ├── Dapatkan directory-level anonymous access
+   └── Enumerate atau baca directory entries
+   DETECTION: Disable anonymous/guest binds
+   BYPASS: Use EXTERNAL SASL mech bind
+
+3. ldap_wildcard
+   WHAT: LDAP wildcard injection untuk memperluas hasil filter
+   HOW:
+   ├── Inject * ke dalam search filters
+   ├── Match semua entries untuk suatu atribut
+   ├── Baca records yang tidak berwenang
+   └── Bypass value scoping
+   DETECTION: Filter input sanitization
+   BYPASS: Use substring (a*) matching
+
+4. ldap_boolean
+   WHAT: Boolean-based blind LDAP injection
+   HOW:
+   ├── Inject boolean payloads ke dalam filter
+   ├── Poll response untuk perbedaan true/false
+   ├── Extract nilai atribut bit-by-bit
+   └── Reconstruct sensitive directory data
+   DETECTION: LDAP query logging dan anomaly detection
+   BYPASS: Use logical OR chains
+
+5. ldap_time_based
+   WHAT: Time-based blind LDAP injection
+   HOW:
+   ├── Inject time-delay conditional filter
+   ├── Buat data-dependent delay via attribute functions
+   ├── Measure response latency
+   └── Derive isi directory dari hasil timing
+   DETECTION: Query latency monitoring
+   BYPASS: Use boolean-based extraction
+
+6. ldap_error_based
+   WHAT: Error-based data extraction LDAP
+   HOW:
+   ├── Inject malformed-but-valid filters
+   ├── Trigger server exceptions atau verbose errors
+   ├── Extract data dari error messages
+   └── Harvest attribute names dan values
+   DETECTION: Disable error verbosity server-side
+   BYPASS: Use server-side conversion errors
 
 LDAP_ABUSE (4):
-├── ldap_enum_user     — User enumeration via LDAP
-├── ldap_enum_group    — Group enumeration
-├── ldap_enum_spn      — SPN enumeration (Kerberoasting)
-└── ldap_dump_all      — Full directory dump
+
+1. ldap_enum_user
+   WHAT: User enumeration via anonymous bind atau filter LDAP
+   HOW:
+   ├── Bind anonymous atau dengan low-priv account
+   ├── Query objectClass=user/posixAccount
+   ├── Enumerate username dan attributes
+   └── Feed daftar user ke password spray
+   DETECTION: LDAP query logging
+   BYPASS: Use SMB enumeration fallback
+
+2. ldap_enum_group
+   WHAT: Group enumeration termasuk nested membership
+   HOW:
+   ├── Query objectClass=group dengan member attributes
+   ├── Expand nested group membership
+   ├── Map privileged groups dan admin
+   └── Target account berprivilege tinggi
+   DETECTION: Sensitive attribute access logging
+   BYPASS: Use token-based enumeration
+
+3. ldap_enum_spn
+   WHAT: SPN enumeration untuk Kerberoasting
+   HOW:
+   ├── Query account dengan servicePrincipalName
+   ├── Request TGS-REP untuk SPN yang ditargetkan
+   ├── Extract encrypted TGS tickets
+   └── Crack password service account offline
+   DETECTION: TGS request anomaly, LDAP SPN audit
+   BYPASS: Use AS-REP roasting variant
+
+4. ldap_dump_all
+   WHAT: Full directory dump via akses LDAP yang diizinkan
+   HOW:
+   ├── Gunakan unrestricted anonymous atau high-priv bind
+   ├── Dump seluruh directory tree
+   ├── Extract credentials, ACLs, dan struktur
+   └── Map seluruh directory untuk lateral movement
+   DETECTION: Bulk LDAP export anomaly
+   BYPASS: Use delta/partitioned queries
 
 FALLBACK:
 Filter Injection → Null Bind → Wildcard → Boolean →
 Time-based → Error-based → User Enum → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+LDAP input escaped                │ 1. Switch to time-based extraction
+                                  │ 2. Use null byte tricks
+                                  │ 3. Alert operator
+Null bind disabled                │ 1. Use low-priv valid bind
+                                  │ 2. Enumerate via errors
+                                  │ 3. Log partial success
+Anonymous bind restricted         │ 1. Relay NTLM to LDAP signing endpoint
+                                  │ 2. Use captured hashes
+                                  │ 3. Continue enumeration
+Blind environment, no output      │ 1. Shift to boolean inference
+                                  │ 2. Use timing oracle
+                                  │ 3. Rebuild query
+Metacharacters filtered           │ 1. Use unicode normalization
+                                  │ 2. Apply double-encoding
+                                  │ 3. Alert operator
+Directory export timeout          │ 1. Segment by OU/DN
+                                  │ 2. Throttle queries
+                                  │ 3. Reassemble dump
 ```
 
 ---
@@ -6766,22 +7517,136 @@ Time-based → Error-based → User Enum → ALERT
 
 ```
 CSRF_ATTACKS (6):
-├── csrf_token_bypass  — Anti-CSRF token bypass
-├── csrf_referer_bypass│ — Referer validation bypass
-├── csrf_samesite_bypass│ — SameSite cookie bypass
-├── csrf_json          — JSON-based CSRF
-├── csrf_xml           — XML-based CSRF
-└── csrf_flash         — Flash-based CSRF
+
+1. csrf_token_bypass
+   WHAT: Anti-CSRF token bypass via leak atau validasi lemah
+   HOW:
+   ├── Identifikasi format dan penempatan token
+   ├── Load token via XSS atau Referer leak
+   ├── Submit action dengan stolen token
+   └── Lakukan unauthorized state change
+   DETECTION: Token double-submit validation
+   BYPASS: Use token-less same-origin variant
+
+2. csrf_referer_bypass
+   WHAT: Referer validation bypass
+   HOW:
+   ├── Craft request dengan Referer kosong/missing
+   ├── Gunakan Referrer-Policy no-referrer stripping
+   ├── Bypass pemeriksaan asal Referer
+   └── Submit forged state change
+   DETECTION: Require exact Origin header
+   BYPASS: Use cross-origin referer prefix trick
+
+3. csrf_samesite_bypass
+   WHAT: SameSite cookie bypass via top-level navigation atau CORS
+   HOW:
+   ├── Identifikasi SameSite=Lax dengan GET top-level
+   ├── Trigger top-level navigation GET CSRF
+   ├── Atau abuse SameSite=None+Secure misconfig
+   └── Eksekusi state-changing cross-site request
+   DETECTION: SameSite enforcement review
+   BYPASS: Use form POST ke JSON endpoint
+
+4. csrf_json
+   WHAT: JSON-based CSRF via cross-site form atau JavaScript
+   HOW:
+   ├── Target JSON API yang menerima cross-origin
+   ├── Gunakan text/plain content-type trick
+   ├── Atau use fetch dengan CORS preflight bypass
+   └── Submit JSON state change secara cross-site
+   DETECTION: Content-type validation + CSRF token
+   BYPASS: Use form-encoded endpoint fallback
+
+5. csrf_xml
+   WHAT: XML-based CSRF via cross-site body
+   HOW:
+   ├── Target endpoint SOAP/XML
+   ├── Craft cross-site XML request dengan form atau fetch
+   ├── Jika content-type/boundary longgar, request tereksekusi
+   └── Ubah state server
+   DETECTION: XML parser content-type enforcement
+   BYPASS: Use SOAPAction header trick
+
+6. csrf_flash
+   WHAT: Flash-based CSRF (legacy cross-domain request bypass)
+   HOW:
+   ├── Abuse crossdomain.xml misconfiguration
+   ├── Gunakan ActionScript untuk mengirim forged requests
+   ├── Baca response lintas domain
+   └── Lakukan authenticated state changes
+   DETECTION: Remove Flash, restrict crossdomain.xml
+   BYPASS: Use alternate browser plugin vectors
 
 CSRF_EXPLOIT (4):
-├── csrf_admin_change  — Admin action hijacking
-├── csrf_password      — Password change hijacking
-├── csrf_email         — Email change hijacking
-└── csrf_transfer      — Fund transfer hijacking
+
+1. csrf_admin_change
+   WHAT: Admin action hijacking via CSRF
+   HOW:
+   ├── Trigger endpoint privileged via CSRF
+   ├── Ubah setting atau role admin
+   ├── Nonaktifkan security controls
+   └── Pertahankan persistent access
+   DETECTION: Admin action logging
+   BYPASS: Use alternate method
+
+2. csrf_password
+   WHAT: Password change hijacking via CSRF
+   HOW:
+   ├── Forge password change request
+   ├── Submit pada session korban
+   ├── Overwrite password akun
+   └── Login sebagai korban
+   DETECTION: Password change CSRF token
+   BYPASS: Use current-password revalidation
+
+3. csrf_email
+   WHAT: Email change hijacking menuju account takeover
+   HOW:
+   ├── Forge email-update request
+   ├── Set email attacker
+   ├── Trigger password reset
+   └── Take over akun korban
+   DETECTION: Email change confirmation
+   BYPASS: Use profile field CSRF
+
+4. csrf_transfer
+   WHAT: Fund/transaction transfer hijacking via CSRF
+   HOW:
+   ├── Forge transfer request
+   ├── Sertakan amount/destination pada request
+   ├── Eksekusi unauthorized transfer
+   └── Cover trail via transaction history flood
+   DETECTION: Transfer re-authentication
+   BYPASS: Use alternate method
 
 FALLBACK:
 Token Bypass → Referer Bypass → SameSite Bypass →
 JSON CSRF → Flash CSRF → Direct Action → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Token bound to session            │ 1. Fallback to SameSite bypass
+                                  │ 2. Use top-level navigation
+                                  │ 3. Alert operator
+Referer checks require origin     │ 1. Strip Referer policy
+                                  │ 2. Mismatch Origin header
+                                  │ 3. Fallback to JSON CSRF
+SameSite=Lax enforced             │ 1. Use top-level GET CSRF
+                                  │ 2. Trigger subdomain popup
+                                  │ 3. Alert operator
+JSON endpoint strict content-type │ 1. Use form-urlencoded fallback
+                                  │ 2. Compatible JSON converter
+                                  │ 3. Log partial success
+Flash-based vector deprecated     │ 1. Switch to fetch/CORS CSRF
+                                  │ 2. Use plugin alternative
+                                  │ 3. Alert operator
+Action requires confirmation      │ 1. Chain CSRF with XSS
+                                  │ 2. Add click-injection layer
+                                  │ 3. Alert operator
 ```
 
 ---
@@ -6790,21 +7655,134 @@ JSON CSRF → Flash CSRF → Direct Action → ALERT
 
 ```
 REDIRECT_ATTACKS (5):
-├── redirect_param     — Parameter manipulation (next, url, redirect)
-├── redirect_double    — Double URL encoding bypass
-├── redirect_protocol  — Protocol-relative redirect (//evil.com)
-├── redirect_backslash │ — Backslash bypass (/\/evil.com)
-└── redirect_unicode   — Unicode/IDN homograph bypass
+
+1. REDIRECT_PARAM
+   WHAT: Parameter manipulation (next, url, redirect)
+   HOW:
+   ├── Identify redirect parameter (next, url, redirect, return)
+   ├── Inject external URL ke parameter value
+   ├── Test GET/POST variations
+   ├── Confirm redirect via response 302/301
+   └── Verify destination ke attacker domain
+   DETECTION: Redirect parameter monitoring
+   BYPASS: Use alternate encoding
+
+2. REDIRECT_DOUBLE
+   WHAT: Double URL encoding bypass
+   HOW:
+   ├── Identify redirect parameter
+   ├── Apply double URL encoding ke payload (e.g., %252f%252f)
+   ├── Submit encoded redirect
+   ├── Bypass single-decode filter
+   └── Confirm redirect ke external domain
+   DETECTION: Double encoding detection
+   BYPASS: Use triple encoding or mixed case
+
+3. REDIRECT_PROTOCOL
+   WHAT: Protocol-relative redirect (//evil.com)
+   HOW:
+   ├── Identify redirect parameter
+   ├── Inject protocol-relative URL (//evil.com)
+   ├── Browser resolves ke current protocol
+   ├── Bypass http/https validation filter
+   └── Confirm redirect ke attacker domain
+   DETECTION: Protocol-relative URL monitoring
+   BYPASS: Use URL with port number
+
+4. REDIRECT_BACKSLASH
+   WHAT: Backslash bypass (/\/evil.com)
+   HOW:
+   ├── Identify redirect parameter
+   ├── Inject backslash pattern (/\/evil.com)
+   ├── Server normalizes ke valid URL
+   ├── Bypass path-based redirect validation
+   └── Confirm redirect ke external domain
+   DETECTION: Backslash pattern detection
+   BYPASS: Use forward slash variations
+
+5. REDIRECT_UNICODE
+   WHAT: Unicode/IDN homograph bypass
+   HOW:
+   ├── Identify redirect parameter
+   ├── Use Unicode-encoded domain (e.g., %C0%AF for /)
+   ├── Inject IDN homograph domain
+   ├── Server fails to decode properly
+   └── Confirm redirect ke attacker domain
+   DETECTION: Unicode normalization monitoring
+   BYPASS: Use mixed encoding
 
 REDIRECT_EXPLOIT (4):
-├── redirect_phish     — Phishing via trusted domain
-├── redirect_oauth     — OAuth code theft via redirect
-├── redirect_token     — Token leakage via redirect
-└── redirect_cors      — CORS misconfiguration via redirect
+
+1. REDIRECT_PHISH
+   WHAT: Phishing via trusted domain redirect
+   HOW:
+   ├── Craft redirect URL on trusted domain
+   ├── Set final destination ke phishing page
+   ├── Send crafted link ke victim
+   ├── Victim trusts trusted domain
+   └── Victim enters credentials ke phishing page
+   DETECTION: Redirect chain analysis
+   BYPASS: Use intermediate redirect
+
+2. REDIRECT_OAUTH
+   WHAT: OAuth code theft via redirect
+   HOW:
+   ├── Identify OAuth callback parameter
+   ├── Inject attacker-controlled redirect_uri
+   ├── Victim initiates OAuth flow
+   ├── Auth code redirected ke attacker
+   └── Attacker exchanges code ke access token
+   DETECTION: OAuth redirect_uri validation
+   BYPASS: Use URL path traversal
+
+3. REDIRECT_TOKEN
+   WHAT: Token leakage via redirect
+   HOW:
+   ├── Identify parameter that passes token via redirect
+   ├── Craft URL that redirects ke external domain
+   ├── Victim clicks link
+   ├── Token appended ke redirect URL
+   └── Attacker captures token dari URL
+   DETECTION: Token in URL parameter monitoring
+   BYPASS: Use fragment-based leakage
+
+4. REDIRECT_CORS
+   WHAT: CORS misconfiguration via redirect
+   HOW:
+   ├── Identify open redirect vulnerability
+   ├── Use redirect ke bypass CORS origin check
+   ├── Craft cross-origin request via redirect
+   ├── Bypass same-origin policy
+   └── Exfiltrate sensitive data
+   DETECTION: CORS redirect bypass monitoring
+   BYPASS: Use cached redirect
 
 FALLBACK:
 Param Manip → Double Encode → Protocol-relative →
 Backslash → Unicode → Direct Phish → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Redirect target blocks external   │ 1. Try alternative encoding
+URL                               │ 2. Use open proxy on redirect
+                                  │ 3. Use data URI scheme
+Server validates whitelist on     │ 1. Try subdomain of whitelisted
+whitelist domains                 │ 2. Find open redirect on whitelisted domain
+                                  │ 3. Use mobile redirect variant
+Redirect triggers WAF alert      │ 1. Use single-char encoding
+                                  │ 2. Delay redirect with JavaScript
+OAuth provider blocks custom      │ 1. Use registered subdomain trick
+redirect_uri                      │ 2. Exploit post-redirect parameter
+                                  │ 3. Use implicit flow
+Unicode normalization filter      │ 1. Use different Unicode encoding
+active                            │ 2. Use homoglyph characters
+                                  │ 3. Combine with protocol-relative
+Double encoding gets re-encoded   │ 1. Use triple encoding
+by framework                      │ 2. Use character substitution
+                                  │ 3. Try raw bytes
 ```
 
 ---
@@ -6813,25 +7791,169 @@ Backslash → Unicode → Direct Phish → ALERT
 
 ```
 UPLOAD_BYPASS (8):
-├── ext_bypass         — Extension blacklist bypass (pHp5, .php.)
-├── content_type_bypass│ — Content-Type header manipulation
-├── magic_bytes_bypass │ — Magic bytes spoofing
-├── double_ext         — Double extension (shell.php.jpg)
-├── null_byte          — Null byte injection (shell.php%00.jpg)
-├── case_variation     — Case variation (shell.pHp)
-├── path_traversal     — Path traversal in filename
-└── polyglot           — Polyglot file (valid image + PHP)
+
+1. EXT_BYPASS
+   WHAT: Extension blacklist bypass (pHp5, .php.)
+   HOW:
+   ├── Enumerate server extension blacklist
+   ├── Try alternative extensions (pHp5, php7, php_)
+   ├── Use trailing dot/space (shell.php.)
+   ├── Submit file via multipart upload
+   └── Confirm execution via web access
+   DETECTION: Extension whitelist enforcement
+   BYPASS: Use double extension
+
+2. CONTENT_TYPE_BYPASS
+   WHAT: Content-Type header manipulation
+   HOW:
+   ├── Intercept file upload request
+   ├── Change Content-Type ke image/jpeg
+   ├── Set filename ke .php
+   ├── Submit modified request
+   └── Confirm file saved dan execution
+   DETECTION: Content-Type validation
+   BYPASS: Use magic bytes spoofing
+
+3. MAGIC_BYTES_BYPASS
+   WHAT: Magic bytes spoofing
+   HOW:
+   ├── Prepend valid magic bytes ke file (e.g., GIF89a)
+   ├── Append PHP payload after magic bytes
+   ├── Keep Content-Type as image/gif
+   ├── Submit file via upload form
+   └── Confirm PHP execution
+   DETECTION: Magic bytes + extension consistency check
+   BYPASS: Use double extension
+
+4. DOUBLE_EXT
+   WHAT: Double extension (shell.php.jpg)
+   HOW:
+   ├── Craft filename shell.php.jpg
+   ├── Set Content-Type ke image/jpeg
+   ├── Upload file via form
+   ├── Server may process ke PHP due to misconfiguration
+   └── Access file with .php extension for execution
+   DETECTION: Double extension detection
+   BYPASS: Use null byte injection
+
+5. NULL_BYTE
+   WHAT: Null byte injection (shell.php%00.jpg)
+   HOW:
+   ├── Craft filename shell.php%00.jpg
+   ├── Upload file via form
+   ├── Server truncates filename at null byte
+   ├── File saved as shell.php
+   └── Confirm PHP execution
+   DETECTION: Null byte filtering
+   BYPASS: Use path traversal
+
+6. CASE_VARIATION
+   WHAT: Case variation (shell.pHp)
+   HOW:
+   ├── Enumerate extension validation case-sensitivity
+   ├── Use mixed case (shell.pHp, shell.Php)
+   ├── Upload via form
+   ├── Server accepts due to case-insensitive check
+   └── Confirm execution on case-insensitive filesystem
+   DETECTION: Case-insensitive extension validation
+   BYPASS: Use URL encoding
+
+7. PATH_TRAVERSAL
+   WHAT: Path traversal in filename
+   HOW:
+   ├── Craft filename with path traversal (../../../shell.php)
+   ├── Upload via form with filename parameter
+   ├── File written ke parent directory
+   ├── Bypass upload directory restriction
+   └── Access file ke execute
+   DETECTION: Filename path traversal check
+   BYPASS: Use absolute path
+
+8. POLYGLOT
+   WHAT: Polyglot file (valid image + PHP)
+   HOW:
+   ├── Create valid JPEG file with PHP payload
+   ├── Embed PHP code ke JPEG comment section
+   ├── Upload as image file
+   ├── Image processed by server as valid image
+   └── Access via LFI ke execute PHP code
+   DETECTION: Polyglot file analysis
+   BYPASS: Use SVG with embedded code
 
 UPLOAD_EXPLOIT (4):
-├── webshell           — PHP/ASP/JSP webshell upload
-├── htaccess_upload    — .htaccess file upload
-├── svg_xss            — SVG with embedded XSS
-└── pdf_js             — PDF with embedded JavaScript
+
+1. WEBSHELL
+   WHAT: PHP/ASP/JSP webshell upload
+   HOW:
+   ├── Create webshell payload (cmd, reverse shell)
+   ├── Bypass upload validation (see UPLOAD_BYPASS)
+   ├── Upload shell ke server
+   ├── Access shell via web URL
+   └── Execute commands remotely
+   DETECTION: Webshell signature detection
+   BYPASS: Use encrypted webshell
+
+2. HTACCESS_UPLOAD
+   WHAT: .htaccess file upload
+   HOW:
+   ├── Create .htaccess with AddType application/x-httpd-php
+   ├── Bypass extension filter (no extension check)
+   ├── Upload .htaccess ke web root
+   ├── Server now parses .jpg ke PHP
+   └── Upload PHP shell disguised as image
+   DETECTION: .htaccess upload monitoring
+   BYPASS: Use user.ini alternative
+
+3. SVG_XSS
+   WHAT: SVG with embedded XSS
+   HOW:
+   ├── Craft SVG file with embedded JavaScript
+   ├── Use onload event ke trigger script
+   ├── Upload SVG via file upload
+   ├── SVG served as image but executes JavaScript
+   └── Steal cookies/credentials
+   DETECTION: SVG content sanitization
+   BYPASS: Use CSS-based XSS
+
+4. PDF_JS
+   WHAT: PDF with embedded JavaScript
+   HOW:
+   ├── Create PDF with embedded JavaScript
+   ├── Use /JS or /JavaScript action
+   ├── Upload PDF via form
+   ├── PDF renders ke user triggers script
+   └── Redirect ke phishing or steal data
+   DETECTION: PDF JavaScript detection
+   BYPASS: Use embedded Flash (legacy)
 
 FALLBACK:
 Ext Bypass → Content-Type Bypass → Magic Bytes →
 Double Extension → Null Byte → Path Traversal →
 Polyglot → Direct Upload → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Server uses content-based file    │ 1. Create valid polyglot file
+inspection (not just extension)   │ 2. Embed payload ke valid file metadata
+                                  │ 3. Use LFI to trigger uploaded file
+Upload directory is not web-      │ 1. Use path traversal to reach web root
+accessible                        │ 2. Find alternate upload destination
+                                  │ 3. Chain with LFI vulnerability
+File system is case-sensitive     │ 1. Use exact extension case
+                                  │ 2. Try uppercase extension
+                                  │ 3. Use double extension
+Anti-virus quarantines uploaded   │ 1. Obfuscate payload with base64
+file                              │ 2. Split payload across multiple files
+                                  │ 3. Use non-standard encoding
+Upload rejects files > certain    │ 1. Compress file ke fit limit
+size                              │ 2. Use chunked upload if supported
+                                  │ 3. Embed small payload only
+Server rewrites extension on      │ 1. Use double extension (shell.php.jpg)
+save                              │ 2. Exploit path traversal
+                                  │ 3. Use content-type confusion
 ```
 
 ---
@@ -6840,26 +7962,190 @@ Polyglot → Direct Upload → ALERT
 
 ```
 TAKEOVER_METHODS (6):
-├── dangling_cname     — CNAME to decommissioned service
-├── dangling_a         — A record to decommissioned IP
-├── dangling_ns        — NS record delegation
-├── azure_takeover     — Azure App Service takeover
-├── aws_takeover       — AWS S3/CloudFront takeover
-└── gcp_takeover       — GCP Storage/Load Balancer takeover
+
+1. DANGLING_CNAME
+   WHAT: CNAME to decommissioned service
+   HOW:
+   ├── Enumerate subdomains ke target
+   ├── Query DNS for CNAME records
+   ├── Identify CNAME pointing ke decommissioned service
+   ├── Verify claimable (no page/claim error)
+   └── Claim subdomain ke attacker's service account
+   DETECTION: CNAME record monitoring
+   BYPASS: Use A record takeover
+
+2. DANGLING_A
+   WHAT: A record to decommissioned IP
+   HOW:
+   ├── Enumerate subdomains via DNS bruteforce
+   ├── Identify A records pointing ke stale IPs
+   ├── Verify IP hosts unclaimed service
+   ├── Register account ke claim service
+   └── Point attacker-controlled content
+   DETECTION: A record stale IP monitoring
+   BYPASS: Use NS record takeover
+
+3. DANGLING_NS
+   WHAT: NS record delegation
+   HOW:
+   ├── Enumerate NS records ke target subdomains
+   ├── Identify NS delegated ke decommissioned DNS provider
+   ├── Register NS records on attacker-controlled DNS
+   ├── Resolve subdomain ke attacker IP
+   └── Host malicious content
+   DETECTION: NS delegation monitoring
+   BYPASS: Use CNAME takeover
+
+4. AZURE_TAKEOVER
+   WHAT: Azure App Service takeover
+   HOW:
+   ├── Identify *.azurewebsites.net CNAME
+   ├── Verify Azure subscription expired/removed
+   ├── Create Azure account ke same region
+   ├── Create App Service with matching name
+   └── Content served from subdomain
+   DETECTION: Azure resource ownership verification
+   BYPASS: Use Azure CDN takeover
+
+5. AWS_TAKEOVER
+   WHAT: AWS S3/CloudFront takeover
+   HOW:
+   ├── Identify *.s3.amazonaws.com CNAME
+   ├── Verify S3 bucket deleted/not claimed
+   ├── Create S3 bucket with exact name
+   ├── Upload malicious content
+   └── Subdomain serves attacker content
+   DETECTION: S3 bucket ownership verification
+   BYPASS: Use CloudFront distribution takeover
+
+6. GCP_TAKEOVER
+   WHAT: GCP Storage/Load Balancer takeover
+   HOW:
+   ├── Identify *.storage.googleapis.com CNAME
+   ├── Verify GCS bucket deleted
+   ├── Create GCS bucket with matching name
+   ├── Upload attacker-controlled content
+   └── Subdomain serves malicious page
+   DETECTION: GCS bucket ownership verification
+   BYPASS: Use GCP Load Balancer takeover
 
 TAKEOVER_TARGETS (8):
-├── github_pages       — github.io CNAME takeover
-├── heroku             — herokuapp.com takeover
-├── shopify            — myshopify.com takeover
-├── fastly             — fastly.net takeover
-├── pantheon           — pantheonsite.io takeover
-├── surge              — surge.sh takeover
-├── cloudfront         — *.cloudfront.net takeover
-└── azure              — *.azurewebsites.net takeover
+
+1. GITHUB_PAGES
+   WHAT: github.io CNAME takeover
+   HOW:
+   ├── Identify subdomain CNAME ke *.github.io
+   ├── Create GitHub Pages repository
+   ├── Configure CNAME file ke target subdomain
+   ├── Deploy attacker content
+   └── Subdomain serves attacker page
+   DETECTION: GitHub Pages ownership check
+   BYPASS: Use alternate hosting
+
+2. HEROKU
+   WHAT: herokuapp.com takeover
+   HOW:
+   ├── Identify *.herokuapp.com CNAME
+   ├── Create Heroku app with matching name
+   ├── Deploy malicious application
+   ├── Content served from target subdomain
+   └── Harvest credentials via phishing
+   DETECTION: Heroku app claim monitoring
+   BYPASS: Use Vercel alternative
+
+3. SHOPIFY
+   WHAT: myshopify.com takeover
+   HOW:
+   ├── Identify *.myshopify.com CNAME
+   ├── Register Shopify store ke same name
+   ├── Configure domain ke attacker's Shopify
+   ├── Serve phishing page ke shop
+   └── Harvest payment/credential data
+   DETECTION: Shopify store verification
+   BYPASS: Use custom storefront
+
+4. FASTLY
+   WHAT: fastly.net takeover
+   HOW:
+   ├── Identify *.fastly.net CNAME
+   ├── Verify previous Fastly account removed
+   ├── Create Fastly account ke claim service
+   ├── Configure edge server ke serve content
+   └── Subdomain hijacked
+   DETECTION: Fastly service monitoring
+   BYPASS: Use Cloudflare alternative
+
+5. PANTHEON
+   WHAT: pantheonsite.io takeover
+   HOW:
+   ├── Identify *.pantheonsite.io CNAME
+   ├── Create Pantheon account ke claim site
+   ├── Deploy attacker-controlled CMS
+   ├── Subdomain serves malicious content
+   └── Harvest user data
+   DETECTION: Pantheon site verification
+   BYPASS: Use alternate CMS hosting
+
+6. SURGE
+   WHAT: surge.sh takeover
+   HOW:
+   ├── Identify *.surge.sh CNAME
+   ├── Deploy ke Surge with matching subdomain
+   ├── Upload attacker-controlled static site
+   ├── Subdomain resolves ke attacker page
+   └── Deliver phishing or malware
+   DETECTION: Surge deployment monitoring
+   BYPASS: Use Netlify alternative
+
+7. CLOUDFRONT
+   WHAT: *.cloudfront.net takeover
+   HOW:
+   ├── Identify *.cloudfront.net CNAME
+   ├── Verify CloudFront distribution deleted
+   ├── Create CloudFront distribution ke same domain
+   ├── Configure origin ke attacker server
+   └── Subdomain serves attacker content
+   DETECTION: CloudFront distribution monitoring
+   BYPASS: Use alternate CDN
+
+8. AZURE
+   WHAT: *.azurewebsites.net takeover
+   HOW:
+   ├── Identify *.azurewebsites.net CNAME
+   ├── Verify Azure web app removed
+   ├── Create Azure web app ke same name
+   ├── Deploy malicious web application
+   └── Subdomain hijacked
+   DETECTION: Azure web app verification
+   BYPASS: Use Azure Functions
 
 FALLBACK:
 CNAME Check → A Record Check → NS Check →
 Azure Enum → AWS Enum → GCP Enum → Takeover → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Service provider validates domain │ 1. Use provider that does not validate
+ownership on claim                │ 2. Find alternate unclaimed provider
+                                  │ 3. Chain with DNS vulnerability
+CNAME points ke active service    │ 1. Wait for service decommissioning
+                                  │ 2. Check for expired SSL certs
+                                  │ 3. Try alternate subdomains
+Target has backup CNAME records   │ 1. Enumerate all DNS records
+                                  │ 2. Check for wildcard records
+                                  │ 3. Try NS delegation takeover
+Cloud provider enforces name      │ 1. Use exact character match
+reservation                       │ 2. Try with hyphens/numbers
+                                  │ 3. Check provider name policies
+Subdomain takeover triggers       │ 1. Use stealth approach with no visible
+immediate detection               │ 2. Serve minimal payload first
+                                  │ 3. Wait before exploitation
+Target subdomain has SSL pinning  │ 1. Use provider-issued certificate
+                                  │ 2. Exploit via HTTP only
+                                  │ 3. Target mixed-content subdomains
 ```
 
 ---
@@ -6868,22 +8154,146 @@ Azure Enum → AWS Enum → GCP Enum → Takeover → ALERT
 
 ```
 CACHE_POISONING (6):
-├── unkeyed_header    — X-Forwarded-Host, X-Original-URL poisoning
-├── unkeyed_cookie    — Cookie-based cache poisoning
-├── fat_get            — GET request with body (fat GET)
-├── parameter_cloaking│ — Parameter cloaking via delimiter
-├── cache_deception    — Cache deception (path confusion)
-└── key_injection     — Cache key injection
+
+1. UNKEYED_HEADER
+   WHAT: X-Forwarded-Host, X-Original-URL poisoning
+   HOW:
+   ├── Identify unkeyed headers (X-Forwarded-Host)
+   ├── Craft request with malicious header value
+   ├── Back-end processes header for response generation
+   ├── Cache stores poisoned response
+   └── Victims served malicious cached content
+   DETECTION: Unkeyed header validation
+   BYPASS: Use alternate header
+
+2. UNKEYED_COOKIE
+   WHAT: Cookie-based cache poisoning
+   HOW:
+   ├── Identify cookies not included ke cache key
+   ├── Craft request with malicious cookie value
+   ├── Application reflects cookie ke cached response
+   ├── Cache stores poisoned response
+   └── Victims receive poisoned page
+   DETECTION: Cookie cache key inclusion
+   BYPASS: Use session-based poisoning
+
+3. FAT_GET
+   WHAT: GET request with body (fat GET)
+   HOW:
+   ├── Send GET request with body containing payload
+   ├── Back-end processes body ke generate response
+   ├── Cache key based on URL only (no body)
+   ├── Poisoned response cached for GET URL
+   └── Victims served malicious content
+   DETECTION: GET body processing detection
+   BYPASS: Use POST with cache header
+
+4. PARAMETER_CLOAKING
+   WHAT: Parameter cloaking via delimiter
+   HOW:
+   ├── Identify parameter delimiter (e.g., #, ?)
+   ├── Craft URL with cloaked parameter (page?#param=value)
+   ├── Back-end parses parameter, frontend ignores
+   ├── Response generated with hidden parameter
+   └── Poisoned cache entry created
+   DETECTION: Parameter delimiter validation
+   BYPATH: Use fragment-based cloaking
+
+5. CACHE_DECEPTION
+   WHAT: Cache deception (path confusion)
+   HOW:
+   ├── Identify cacheable path patterns
+   ├── Craft URL with deceptive path (/account.js)
+   ├── Back-end ignores extension, serves dynamic content
+   ├── Cache stores dynamic response under static path
+   └── Victims receive poisoned cached page
+   DETECTION: Path confusion detection
+   BYPASS: Use URL rewrite tricks
+
+6. KEY_INJECTION
+   WHAT: Cache key injection
+   HOW:
+   ├── Identify cache key derivation logic
+   ├── Inject extra characters ke affect key generation
+   ├── Craft URL that generates different cache key
+   ├── Bypass cache segmentation
+   └── Poison specific cache segment
+   DETECTION: Cache key injection monitoring
+   BYPASS: Use encoding variations
 
 CACHE_EXPLOIT (4):
-├── xss_cache          — Stored XSS via cache
-├── redirect_cache     — Open redirect via cache
-├── dos_cache          — Cache-based DoS
-└── takeover_cache     — Subdomain takeover via cache
+
+1. XSS_CACHE
+   WHAT: Stored XSS via cache
+   HOW:
+   ├── Poison cache with XSS payload
+   ├── Payload embedded in cached response
+   ├── All users served cached version
+   ├── XSS executes in victim browsers
+   └── Steal cookies/credentials
+   DETECTION: Cached XSS signature scanning
+   BYPASS: Use DOM-based cached XSS
+
+2. REDIRECT_CACHE
+   WHAT: Open redirect via cache
+   HOW:
+   ├── Poison cache ke include open redirect
+   ├── Redirect embedded in cached page
+   ├── Users clicking link redirected ke attacker
+   ├── Phishing page delivered
+   └── Credentials harvested
+   DETECTION: Cached redirect detection
+   BYPASS: Use JavaScript-based redirect
+
+3. DOS_CACHE
+   WHAT: Cache-based DoS
+   HOW:
+   ├── Identify cache partition boundaries
+   ├── Poison cache ke serve invalid/error content
+   ├── All victims served broken cached page
+   ├── Legitimate content unavailable
+   └── Service disruption achieved
+   DETECTION: Cache anomaly detection
+   BYPASS: Use cache size exhaustion
+
+4. TAKEOVER_CACHE
+   WHAT: Subdomain takeover via cache
+   HOW:
+   ├── Combine cache poisoning with subdomain takeover
+   ├── Poison cache on target subdomain
+   ├── Serve attacker-controlled content
+   ├── Cached content served ke all victims
+   └── Persistent hijacking achieved
+   DETECTION: Cache-subdomain correlation
+   BYPASS: Use CDN-level takeover
 
 FALLBACK:
 Unkeyed Header → Cookie Poisoning → Fat GET →
 Parameter Cloaking → Cache Deception → Key Injection → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Cache uses request body in key    │ 1. Try URL-only cache key bypass
+                                  │ 2. Use query parameter injection
+                                  │ 3. Exploit Vary header misconfiguration
+Cache has short TTL (< 1 min)     │ 1. Re-poison frequently
+                                  │ 2. Target high-traffic endpoints
+                                  │ 3. Use persistent payload
+CDN strips unkeyed headers        │ 1. Try alternate header names
+                                  │ 2. Use HTTP/2 smuggling
+                                  │ 3. Exploit CDN-specific headers
+Cache segments by Vary header     │ 1. Manipulate Accept header
+                                  │ 2. Use Content-Type confusion
+                                  │ 3. Target CDN-specific cache rules
+Poisoned cache triggers WAF       │ 1. Use obfuscated payload
+                                  │ 2. Delay payload activation
+                                  │ 3. Use CSS/JS-based payload
+Cache uses hash-based keys        │ 1. Identify key derivation algorithm
+                                  │ 2. Craft collisions
+                                  │ 3. Exploit weak hash function
 ```
 
 ---
@@ -6892,22 +8302,146 @@ Parameter Cloaking → Cache Deception → Key Injection → ALERT
 
 ```
 SMUGGLING_ATTACKS (6):
-├── cl_te              — Content-Length vs Transfer-Encoding conflict
-├── te_cl              — Transfer-Encoding vs Content-Length conflict
-├── te_te              — Obfuscated Transfer-Encoding
-├── cl_cl              — Duplicate Content-Length
-├── h2c_smuggling      — HTTP/2 cleartext smuggling
-└── http2_downgrade    — HTTP/2 to HTTP/1.1 downgrade
+
+1. CL_TE
+   WHAT: Content-Length vs Transfer-Encoding conflict
+   HOW:
+   ├── Send request with both CL and TE headers
+   ├── Front-end uses Content-Length
+   ├── Back-end uses Transfer-Encoding
+   ├── Craft payload that splits ke two requests
+   └── Smuggled request executes on back-end
+   DETECTION: CL/TE header conflict monitoring
+   BYPASS: Use TE.CL variant
+
+2. TE_CL
+   WHAT: Transfer-Encoding vs Content-Length conflict
+   HOW:
+   ├── Send request with both TE and CL headers
+   ├── Front-end uses Transfer-Encoding
+   ├── Back-end uses Content-Length
+   ├── Craft request where TE body differs dari CL
+   └── Smuggled request appended ke next request
+   DETECTION: TE/CL header conflict detection
+   BYPASS: Use obfuscated TE
+
+3. TE_TE
+   WHAT: Obfuscated Transfer-Encoding
+   HOW:
+   ├── Send request with obfuscated TE header
+   ├── Use spaces/tabs/encoding ke bypass front-end
+   ├── Front-end ignores obfuscated TE
+   ├── Back-end processes TE normally
+   └── Request body smuggled through
+   DETECTION: Obfuscated TE header detection
+   BYPASS: Use double TE header
+
+4. CL_CL
+   WHAT: Duplicate Content-Length
+   HOW:
+   ├── Send request with two Content-Length headers
+   ├── Front-end uses first CL
+   ├── Back-end uses second CL
+   ├── Craft payload splitting request
+   └── Smuggled request injected
+   DETECTION: Duplicate CL header detection
+   BYPASS: Use whitespace manipulation
+
+5. H2C_SMUGGLING
+   WHAT: HTTP/2 cleartext smuggling
+   HOW:
+   ├── Connect ke server via HTTP/2 cleartext
+   ├── Craft HTTP/2 frame with smuggled payload
+   ├── Front-end upgrades HTTP/2 ke HTTP/1.1
+   ├── Payload interpreted differently
+   └── Smuggled request executes
+   DETECTION: H2C upgrade monitoring
+   BYPASS: Use HTTP/2 downgrade
+
+6. HTTP2_DOWNGRADE
+   WHAT: HTTP/2 to HTTP/1.1 downgrade
+   HOW:
+   ├── Send HTTP/2 request with smuggled HTTP/1.1 body
+   ├── Server downgrades ke HTTP/1.1
+   ├── Smuggled request processed
+   ├── Header/body parsing conflicts
+   └── Request injection achieved
+   DETECTION: HTTP version downgrade monitoring
+   BYPASS: Use HTTP/3 smuggling
 
 SMUGGLING_EXPLOIT (4):
-├── xss_smuggle        — XSS via request smuggling
-├── credential_smuggle │ — Credential theft via smuggling
-├── cache_smuggle      — Cache poisoning via smuggling
-└── rce_smuggle        — RCE via request smuggling
+
+1. XSS_SMUGGLE
+   WHAT: XSS via request smuggling
+   HOW:
+   ├── Smuggle request containing XSS payload
+   ├── Victim's request appended ke smuggled request
+   ├── Response contains XSS payload
+   ├── XSS executes ke victim's browser
+   └── Cookies/credentials stolen
+   DETECTION: Smuggled XSS detection
+   BYPASS: Use DOM-based smuggled XSS
+
+2. CREDENTIAL_SMUGGLE
+   WHAT: Credential theft via smuggling
+   HOW:
+   ├── Smuggle request that triggers credential prompt
+   ├── Victim's next request appends ke smuggled request
+   ├── Back-end processes both requests as one
+   ├── Credentials leaked ke attacker
+   └── Use stolen credentials ke access accounts
+   DETECTION: Smuggled credential extraction
+   BYPASS: Use timing-based extraction
+
+3. CACHE_SMUGGLE
+   WHAT: Cache poisoning via smuggling
+   HOW:
+   ├── Smuggle request that poisons cache entry
+   ├── Poisoned response cached by CDN/front-end
+   ├── All subsequent users served poisoned content
+   ├── Persistent XSS/redirect delivered
+   └── Mass compromise achieved
+   DETECTION: Cache smuggling correlation
+   BYPASS: Use partial cache poisoning
+
+4. RCE_SMUGGLE
+   WHAT: RCE via request smuggling
+   HOW:
+   ├── Smuggle request containing command injection
+   ├── Back-end processes smuggled command
+   ├── Command execution ke back-end server
+   ├── Attacker gains remote access
+   └── Full system compromise
+   DETECTION: Smuggled RCE detection
+   BYPASS: Use file write via smuggling
 
 FALLBACK:
 CL.TE → TE.CL → TE.TE → CL.CL → H2C →
 HTTP/2 Downgrade → Direct Smuggle → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Server normalizes TE header       │ 1. Use obfuscated TE variants
+consistently                      │ 2. Try double TE encoding
+                                  │ 3. Use HTTP/2 specific vectors
+Both servers use same parsing     │ 1. Target middleware differences
+logic                             │ 2. Use malformed header variants
+                                  │ 3. Exploit whitespace handling
+Connection uses keep-alive only   │ 1. Force connection close
+                                  │ 2. Use pipelined requests
+                                  │ 3. Exploit connection pooling
+WAF detects smuggling patterns    │ 1. Use slow loris-style smuggling
+                                  │ 2. Fragment across multiple requests
+                                  │ 3. Use HTTP/2 frame manipulation
+Back-end uses HTTP/2 exclusively  │ 1. Use HTTP/2 to HTTP/1.1 downgrade
+                                  │ 2. Exploit h2c upgrade path
+                                  │ 3. Use HTTP/2 frame smuggling
+Load balancer normalizes headers  │ 1. Target LB-specific parsing quirks
+                                  │ 2. Use hop-by-hop header manipulation
+                                  │ 3. Exploit LB back-end differences
 ```
 
 ---
@@ -6916,20 +8450,118 @@ HTTP/2 Downgrade → Direct Smuggle → ALERT
 
 ```
 DNSSEC_ATTACKS (5):
-├── zone_walking       — NSEC zone walking
-├── algo_downgrade     — Algorithm downgrade attack
-├── key_roll_bypass    — Key rollover bypass
-├── cds_cdskey         — CDS/CDNSKEY manipulation
-└── denial_encryption  — NSEC3 hash collision
+
+1. ZONE_WALKING
+   WHAT: NSEC zone walking enumeration
+   HOW:
+   ├── Query zone with NSEC-signed responses
+   ├── Collect NSEC records
+   ├── Infer next names from record hashes
+   ├── Iterate hingga full zone mapped
+   └── Extract hidden/private records
+   DETECTION: NSEC query volume anomaly detection
+   BYPASS: Use NSEC5-style or black-lies signing
+
+2. ALGO_DOWNGRADE
+   WHAT: Algorithm downgrade attack
+   HOW:
+   ├── Identify supported DNSSEC algorithms
+   ├── Strip strongest DS/DNSKEY records
+   ├── Force resolver to accept weak signature
+   ├── Downgrade authentication strength
+   └── Forge response with weak key material
+   DETECTION: Algorithm policy enforcement monitoring
+   BYPASS: Enforce minimum algorithm policy
+
+3. KEY_ROLL_BYPASS
+   WHAT: Key rollover bypass
+   HOW:
+   ├── Observe key rollover schedule
+   ├── Capture old ZSK/KSK material
+   ├── Inject stale valid signatures
+   ├── Exploit propagation delay window
+   └── Replay forged zone data
+   DETECTION: Rollover timing anomaly detection
+   BYPASS: Use alternate method
+
+4. CDS_CDSKEY
+   WHAT: CDS/CDNSKEY manipulation
+   HOW:
+   ├── Obtain write access to parent zone
+   ├── Modify CDS/CDNSKEY records
+   ├── Redirect trust anchor to attacker key
+   ├── Sign malicious zone content
+   └── Serve forged records as authentic
+   DETECTION: CDS/CDNSKEY change monitoring
+   BYPASS: Secure parent zone registration process
+
+5. DENIAL_ENCRYPTION
+   WHAT: NSEC3 hash collision/brute force
+   HOW:
+   ├── Harvest NSEC3 hashes from responses
+   ├── Brute-force hashes offline
+   ├── Reconstruct zone names from hash
+   ├── Create hash collisions to mask queries
+   └── Enumerate entire zone
+   DETECTION: NSEC3 query pattern monitoring
+   BYPASS: Rotate NSEC3 salts frequently
 
 DNSSEC_ABUSE (3):
-├── sig_forge         — Signature forgery (if weak algo)
-├── replay_attack      — Signed response replay
-└── cache_poison       — DNSSEC bypass for cache poisoning
+
+1. SIG_FORGE
+   WHAT: Signature forgery with weak algorithm
+   HOW:
+   ├── Identify weak algorithm (e.g., RSAMD5)
+   ├── Recover key or exploit algorithm weakness
+   ├── Sign malicious RRset
+   ├── Inject forged signature
+   └── Validator accepts forged data
+   DETECTION: Signature verification logging
+   BYPASS: Enforce minimum algorithm strength
+
+2. REPLAY_ATTACK
+   WHAT: Signed response replay
+   HOW:
+   ├── Capture valid signed responses
+   ├── Modify TTL via responder
+   ├── Serve replay in attacker location
+   ├── Validator accepts valid signature
+   └── Poisoned answer cached
+   DETECTION: DNSSEC TTL/validity monitoring
+   BYPASS: Use short signature validity windows
+
+3. CACHE_POISON
+   WHAT: DNSSEC bypass for cache poisoning
+   HOW:
+   ├── Bypass or degrade DNSSEC validation
+   ├── Spoof additional DNS records
+   ├── Inject malicious answer into cache
+   ├── TTL propagates poisoned entry
+   └── Victim resolves attacker-controlled IP
+   DETECTION: Resolver validation state audit
+   BYPASS: Enable strict DNSSEC validation mode
 
 FALLBACK:
 Zone Walking → Algorithm Downgrade → Key Roll Bypass →
 CDS Manipulation → NSEC3 Collision → Direct Poison → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+NSEC enumeration blocked by NSEC5 │ 1. Fall back to algorithm downgrade
+                                  │ 2. Try key rollover bypass
+Validator enforces RSA-2048       │ 1. Move to key rollover bypass
+                                  │ 2. Attempt CDS/CDNSKEY manipulation
+                                  │ 3. Alert operator
+Parent zone locked (no CDS write) │ 1. Skip to NSEC3 collision
+                                  │ 2. Attempt direct cache poisoning
+Replay window expired (short TTL) │ 1. Use cache poisoning instead
+                                  │ 2. Increase poisoning speed
+                                  │ 3. Alert operator
+Cache poisons quarantined quickly │ 1. Retry via alternate resolver
+                                  │ 2. Use alternate method
 ```
 
 ---
@@ -6938,22 +8570,140 @@ CDS Manipulation → NSEC3 Collision → Direct Poison → ALERT
 
 ```
 CERT_ATTACKS (6):
-├── rogue_ca           — Rogue CA certificate generation
-├── ntlm_relay_cert    — NTLM relay to ADCS HTTP enrollment
-├── shadow_cred_cert   — Shadow credentials → certificate
-├── cert_duplication   — Certificate duplication
-├── weak_key           — Weak key exploitation (RSA 1024)
-└── self_signed        — Self-signed certificate injection
+
+1. ROGUE_CA
+   WHAT: Rogue CA certificate generation
+   HOW:
+   ├── Generate root CA key pair
+   ├── Create rogue CA cert (BasicConstraints)
+   ├── Sign malicious leaf certificates
+   ├── Trust root on target system
+   └── Intercept HTTPS traffic
+   DETECTION: Certificate trust store audit
+   BYPASS: Remove rogue root from trust store
+
+2. NTLM_RELAY_CERT
+   WHAT: NTLM relay to ADCS HTTP enrollment
+   HOW:
+   ├── Capture NTLM authentication
+   ├── Relay to ADCS /certsrv enrollment
+   ├── Request certificate on victim's behalf
+   ├── Obtain attacker-controlled PFX
+   └── Authenticate as victim
+   DETECTION: ADCS enrollment anomaly monitoring
+   BYPASS: Enforce EPA and relay protections
+
+3. SHADOW_CRED_CERT
+   WHAT: Shadow credentials to certificate
+   HOW:
+   ├── Obtain write to msDS-KeyCredentialLink
+   ├── Create shadow credential for target
+   ├── Authenticate as target via PKINIT
+   ├── Request certificate with device key
+   └── Obtain TGT / persist as victim
+   DETECTION: KeyCredentialLink modification alert
+   BYPASS: Enable device unlock and cert audit
+
+4. CERT_DUPLICATION
+   WHAT: Certificate duplication
+   HOW:
+   ├── Steal private key material
+   ├── Duplicate certificate with same serial
+   ├── Re-issue to attacker-controlled key
+   ├── Present duplicated certificate
+   └── Gain identity impersonation
+   DETECTION: Certificate serial collision monitoring
+   BYPASS: Use alternate method
+
+5. WEAK_KEY
+   WHAT: Weak key exploitation (RSA 1024)
+   HOW:
+   ├── Identify RSA-1024/small key certificate
+   ├── Factor modulus (CADO-NFS)
+   ├── Recover private key
+   ├── Sign forged certificates
+   └── Impersonate legitimate service
+   DETECTION: Key size policy enforcement
+   BYPASS: Enforce RSA-2048+/ECC policy
+
+6. SELF_SIGNED
+   WHAT: Self-signed certificate injection
+   HOW:
+   ├── Generate self-signed cert for target
+   ├── Install into trust store (RCE/AD)
+   ├── Present forged cert to victim
+   ├── Victim trusts forged certificate
+   └── MITM encrypted traffic
+   DETECTION: Trust store tamper detection
+   BYPASS: Enforce CA-signed certificate policy
 
 CERT_ABUSE (4):
-├── cert_transparency  — CT log abuse
-├── ocsp_stapling      — OCSP stapling bypass
-├── pin_bypass         — Certificate pinning bypass
-└── ca_compromise      — CA private key compromise
+
+1. CERT_TRANSPARENCY
+   WHAT: CT log abuse
+   HOW:
+   ├── Query CT logs for domain certificates
+   ├── Enumerate subdomains/internal names
+   ├── Identify weak or leaked certificates
+   ├── Use leaked names in targeting
+   └── Prepare targeted attack
+   DETECTION: CT log query monitoring
+   BYPASS: Use alternate method
+
+2. OCSP_STAPLING
+   WHAT: OCSP stapling bypass
+   HOW:
+   ├── Serve cached OCSP assertion
+   ├── Strip must-staple extension
+   ├── Rewrite OCSP responses
+   ├── Serve revoked certificate
+   └── Client accepts revoked cert
+   DETECTION: OCSP responder monitoring
+   BYPASS: Enforce must-staple and CRL checks
+
+3. PIN_BYPASS
+   WHAT: Certificate pinning bypass
+   HOW:
+   ├── Identify pinned certificates
+   ├── Hook pinning API (Frida/Xposed)
+   ├── Patch app pinning logic
+   ├── Load attacker CA into app
+   └── Intercept pinned traffic
+   DETECTION: App integrity/pinning attestation
+   BYPASS: Use alternate method
+
+4. CA_COMPROMISE
+   WHAT: CA private key compromise
+   HOW:
+   ├── Obtain CA signing key material
+   ├── Issue rogue cert via cross-CA chain
+   ├── Sign malicious certificates
+   ├── MITM HTTPS traffic
+   └── Browser validates trust chain
+   DETECTION: CA incident and log anomaly feed
+   BYPASS: Add CA to distrust list
 
 FALLBACK:
 Rogue CA → NTLM Relay → Shadow Credentials →
 Weak Key → Self-Signed → Direct Injection → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+LDAPS / EPA blocks NTLM relay     │ 1. Move to shadow credentials
+                                  │ 2. Attempt weak key exploitation
+                                  │ 3. Alert operator
+KeyCredentialLink not writable    │ 1. Fall back to weak key attack
+                                  │ 2. Move to rogue CA injection
+CA enforces minimum key size      │ 1. Switch to rogue CA route
+                                  │ 2. Attempt self-signed injection
+WAF blocks PFX export tooling     │ 1. Adjust enrollment payload
+                                  │ 2. Use certificate duplication
+                                  │ 3. Alert operator
+ADCS HTTP enrollment disabled     │ 1. Fall back to self-signed
+                                  │ 2. Compromise trust store directly
 ```
 
 ---
@@ -6962,21 +8712,129 @@ Weak Key → Self-Signed → Direct Injection → ALERT
 
 ```
 TLS13_ATTACKS (5):
-├── middlebox_compat   — Middlebox compatibility downgrade
-├── interception       — TLS 1.3 interception (enterprise)
-├── handshake_log      — Handshake metadata leakage
-├── session_resumption │ — Session ticket abuse
-└── key_logging        — TLS key logging (SSLKEYLOGFILE)
+
+1. MIDDLEBOX_COMPAT
+   WHAT: Middlebox compatibility downgrade
+   HOW:
+   ├── Present legacy record version
+   ├── Force compat mode plaintext metadata
+   ├── Intercept session ticket/SNI plaintext
+   ├── Downgrade at middlebox boundary
+   └── Extract session metadata
+   DETECTION: TLS record version anomaly detection
+   BYPASS: Disable middlebox compatibility mode
+
+2. INTERCEPTION
+   WHAT: TLS 1.3 interception (enterprise)
+   HOW:
+   ├── Deploy corporate MITM proxy
+   ├── Install root CA on endpoints
+   ├── Forward-resign certificates
+   ├── Intercept TLS 1.3 sessions
+   └── Decrypt and analyze traffic
+   DETECTION: TLS EKM/channel identity verification
+   BYPASS: Use alternate method
+
+3. HANDSHAKE_LOG
+   WHAT: Handshake metadata leakage
+   HOW:
+   ├── Capture ClientHello
+   ├── Extract SNI, ALPN, cipher suites
+   ├── Fingerprint client (JA3/JA4)
+   ├── Correlate with other logs
+   └── Profile session and target
+   DETECTION: TLS metadata logging in EDR
+   BYPASS: Use ECH and SNI padding
+
+4. SESSION_RESUMPTION
+   WHAT: Session ticket abuse
+   HOW:
+   ├── Steal session ticket (pre-shared key)
+   ├── Replay ticket on new connection
+   ├── Resume session without full auth
+   ├── Inject 0-RTT early data
+   └── Reuse victim's session state
+   DETECTION: Session ticket reuse anomaly
+   BYPASS: Short ticket lifetime and rotation
+
+5. KEY_LOGGING
+   WHAT: TLS key logging (SSLKEYLOGFILE)
+   HOW:
+   ├── Obtain process/environment access
+   ├── Set SSLKEYLOGFILE or hook key funcs
+   ├── Log NSS key log entries
+   ├── Decrypt captured pcap offline
+   └── Recover plaintext traffic
+   DETECTION: Env var/key log file monitoring
+   BYPASS: Use alternate method
 
 TLS_ABUSE (4):
-├── cipher_downgrade   — Cipher suite downgrade
-├── cert_strip         — Certificate stripping
-├── mitm_tls           — TLS man-in-the-middle
-└── trusted_ca         — Trusted CA abuse
+
+1. CIPHER_DOWNGRADE
+   WHAT: Cipher suite downgrade
+   HOW:
+   ├── Strip strong suites from ClientHello
+   ├── Force negotiation of weak cipher
+   ├── Weak crypto enables offline attack
+   ├── Capture session
+   └── Decrypt traffic
+   DETECTION: TLS server cipher policy audit
+   BYPASS: Enforce strong cipher policy
+
+2. CERT_STRIP
+   WHAT: Certificate stripping
+   HOW:
+   ├── MITM the HTTP to HTTPS upgrade
+   ├── Strip redirect to HTTPS
+   ├── Downgrade connection to HTTP
+   ├── Intercept plaintext
+   └── Modify or extract data
+   DETECTION: HSTS enforcement/upgrade detection
+   BYPASS: Enforce HSTS preload and redirects
+
+3. MITM_TLS
+   WHAT: TLS man-in-the-middle
+   HOW:
+   ├── Position at network chokepoint
+   ├── Intercept ClientHello
+   ├── Present forged certificate
+   ├── Decrypt and re-encrypt traffic
+   └── Modify traffic in transit
+   DETECTION: Certificate anomaly detection
+   BYPASS: Use alternate method
+
+4. TRUSTED_CA
+   WHAT: Trusted CA abuse
+   HOW:
+   ├── Identify high-trust CA (compromised/misuse)
+   ├── Forge certificate under that CA
+   ├── Re-sign intercepted traffic
+   ├── Victim trust chain validates
+   └── MITM succeeds
+   DETECTION: CA transparency/audit alerts
+   BYPASS: Add CA to distrust list
 
 FALLBACK:
 Middlebox Downgrade → Interception → Session Abuse →
 Cipher Downgrade → Cert Strip → Direct MITM → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+TLS EKM detects interception      │ 1. Fall back to key logging
+                                  │ 2. Attempt session ticket abuse
+                                  │ 3. Alert operator
+Client uses ECH (encrypted SNI)   │ 1. Reduce handshake metadata scope
+                                  │ 2. Move to cipher downgrade
+Session tickets rotated frequently│ 1. Switch to 0-RTT early data abuse
+                                  │ 2. Fall back to certificate strip
+HSTS preloaded domain             │ 1. Use rogue CA instead of strip
+                                  │ 2. Attempt direct MITM
+                                  │ 3. Alert operator
+Pinned certificate prevents MITM  │ 1. Hook pinning into endpoint
+                                  │ 2. Use alternate method
 ```
 
 ---
@@ -6985,22 +8843,140 @@ Cipher Downgrade → Cert Strip → Direct MITM → ALERT
 
 ```
 SCADA_PROTOCOLS (5):
-├── modbus_attack      — Modbus TCP/RTU exploitation
-├── dnp3_attack        — DNP3 protocol exploitation
-├── iec61850           — IEC 61850 (GOOSE/SV) attack
-├── opcua_attack       — OPC UA exploitation
-└── bacnet_attack      — BACnet protocol exploitation
+
+1. MODBUS_ATTACK
+   WHAT: Modbus TCP/RTU exploitation
+   HOW:
+   ├── Scan Modbus/TCP port 502
+   ├── Identify slave units and coils
+   ├── Enumerate function codes
+   ├── Write to coils/registers
+   └── Manipulate industrial process
+   DETECTION: Modbus packet whitelist/anomaly
+   BYPASS: Use alternate method
+
+2. DNP3_ATTACK
+   WHAT: DNP3 protocol exploitation
+   HOW:
+   ├── Scan DNP3 port 20000
+   ├── Enumerate outstation addresses
+   ├── Issue DNP3 read/write commands
+   ├── Modify data points/objects
+   └── Disrupt control operations
+   DETECTION: DNP3 deep packet inspection
+   BYPASS: Use alternate method
+
+3. IEC61850
+   WHAT: IEC 61850 (GOOSE/SV) attack
+   HOW:
+   ├── Capture GOOSE/SV multicast traffic
+   ├── Analyze datasets/control blocks
+   ├── Spoof GOOSE messages (MAC spoof)
+   ├── Inject fake SV measurements
+   └── Suppress safety trips
+   DETECTION: GOOSE sequence/message monitoring
+   BYPASS: Use alternate method
+
+4. OPCUA_ATTACK
+   WHAT: OPC UA exploitation
+   HOW:
+   ├── Discover OPC UA servers (port 4840)
+   ├── Brute force app/user credentials
+   ├── Enumerate nodes/namespaces
+   ├── Read/write variables and call methods
+   └── Manipulate process data
+   DETECTION: OPC UA access logging/AAA
+   BYPASS: Use alternate method
+
+5. BACNET_ATTACK
+   WHAT: BACnet protocol exploitation
+   HOW:
+   ├── Scan UDP/47808 BACnet devices
+   ├── Who-Is/I-Am device discovery
+   ├── Issue Read/WriteProperty commands
+   ├── Manipulate HVAC/building controls
+   └── Bypass physical security controls
+   DETECTION: BACnet command anomaly detection
+   BYPASS: Use alternate method
 
 SCADA_EXPLOIT (5):
-├── plc_reprogram      — PLC reprogramming
-├── hmi_attack         — HMI exploitation
-├── scada_enum         — SCADA device enumeration
-├── protocol_fuzz      — Protocol fuzzing
-└── mitm_scada         — SCADA man-in-the-middle
+
+1. PLC_REPROGRAM
+   WHAT: PLC reprogramming
+   HOW:
+   ├── Connect to PLC engineering port
+   ├── Upload malicious ladder/ST logic
+   ├── Insert logic into scan cycle
+   ├── Override safety interlocks
+   └── Control industrial process
+   DETECTION: PLC logic/firmware integrity hash
+   BYPASS: Use alternate method
+
+2. HMI_ATTACK
+   WHAT: HMI exploitation
+   HOW:
+   ├── Access HMI (web/RDP/VNC)
+   ├── Brute force HMI credentials
+   ├── Manipulate operator screens
+   ├── Control pumps/valves remotely
+   └── Mask process manipulation
+   DETECTION: HMI login/change audit
+   BYPASS: Use alternate method
+
+3. SCADA_ENUM
+   WHAT: SCADA device enumeration
+   HOW:
+   ├── Scan ICS network ranges
+   ├── Fingerprint devices (banners/Shodan)
+   ├── Identify device and firmware
+   ├── Map network topology
+   └── Prepare targeted exploitation
+   DETECTION: ICS scan/anomaly detection
+   BYPASS: Use alternate method
+
+4. PROTOCOL_FUZZ
+   WHAT: Protocol fuzzing
+   HOW:
+   ├── Capture protocol traffic
+   ├── Build protocol template
+   ├── Fuzz fields (boofuzz/AFL)
+   ├── Crash device or trigger DOS
+   └── Identify exploit primitives
+   DETECTION: Protocol fuzzing anomaly traffic
+   BYPASS: Use alternate method
+
+5. MITM_SCADA
+   WHAT: SCADA man-in-the-middle
+   HOW:
+   ├── ARP spoof PLC/HMI/RTU
+   ├── Intercept real-time process data
+   ├── Relay spoofed values to HMI
+   ├── Alter commands to PLC
+   └── Hide process manipulation
+   DETECTION: ARP anomaly in ICS network
+   BYPASS: Use alternate method
 
 FALLBACK:
 Modbus → DNP3 → IEC 61850 → OPC UA → BACnet →
 PLC Reprogram → HMI Attack → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+PLC has application whitelisting  │ 1. Fall back to MITM on network
+                                  │ 2. Target HMI instead
+                                  │ 3. Alert operator
+GOOSE spoof blocked (IEC 62351)   │ 1. Move to protocol fuzzing
+                                  │ 2. Attempt DNP3 exploitation
+OPC UA enforces cert validation   │ 1. Reduce to read-only enumeration
+                                  │ 2. Try alternate protocol vector
+ICS network is air-gapped         │ 1. Pivot via engineering workstation
+                                  │ 2. Use physical USB/OT drop
+                                  │ 3. Alert operator
+HMI protected by MFA              │ 1. Reprogram PLC over the network
+                                  │ 2. Use alternate method
 ```
 
 ---
@@ -7009,25 +8985,172 @@ PLC Reprogram → HMI Attack → ALERT
 
 ```
 IOT_ATTACKS (8):
-├── firmware_extract   — Firmware extraction (JTAG/UART/SPI)
-├── firmware_analysis  — Firmware reverse engineering
-├── default_cred       — Default credential testing
-├── mqtt_exploit       — MQTT protocol exploitation
-├── coap_exploit       — CoAP protocol exploitation
-├── zigbee_attack      — Zigbee protocol attack
-├── zwave_attack       — Z-Wave protocol attack
-└── ble_exploit        — BLE (Bluetooth Low Energy) exploitation
+
+1. FIRMWARE_EXTRACT
+   WHAT: Firmware extraction (JTAG/UART/SPI)
+   HOW:
+   ├── Identify UART/JTAG header on PCB
+   ├── Connect hardware debug interface
+   ├── Dump flash via SPI (flashrom)
+   ├── Recover firmware/keys
+   └── Save for offline analysis
+   DETECTION: Tamper-evident seals/hardware IDS
+   BYPASS: Use alternate method
+
+2. FIRMWARE_ANALYSIS
+   WHAT: Firmware reverse engineering
+   HOW:
+   ├── Obtain firmware (extract/OTA)
+   ├── Unpack rootfs with binwalk
+   ├── Identify filesystem and binaries
+   ├── Extract hardcoded creds/keys
+   └── Find vulnerabilities to exploit
+   DETECTION: Firmware integrity monitoring
+   BYPASS: Use alternate method
+
+3. DEFAULT_CRED
+   WHAT: Default credential testing
+   HOW:
+   ├── Identify device model/firmware
+   ├── Query default credential database
+   ├── Try admin/admin, root, etc.
+   ├── Use manufacturer backdoor creds
+   └── Gain device access
+   DETECTION: Device credential policy monitoring
+   BYPASS: Enforce unique per-device credentials
+
+4. MQTT_EXPLOIT
+   WHAT: MQTT protocol exploitation
+   HOW:
+   ├── Scan MQTT TCP/1883 or TLS 8883
+   ├── Connect without authentication
+   ├── Subscribe to device topics
+   ├── Publish forged messages
+   └── Control IoT devices
+   DETECTION: MQTT auth/ACL monitoring
+   BYPASS: Use alternate method
+
+5. COAP_EXPLOIT
+   WHAT: CoAP protocol exploitation
+   HOW:
+   ├── Scan CoAP UDP/5683
+   ├── Send discovery requests
+   ├── Exploit unauthenticated endpoints
+   ├── Modify device resources
+   └── RCE via vulnerable handlers
+   DETECTION: CoAP endpoint auth monitoring
+   BYPASS: Use alternate method
+
+6. ZIGBEE_ATTACK
+   WHAT: Zigbee protocol attack
+   HOW:
+   ├── Sniff Zigbee frames (CC2531)
+   ├── Extract network key material
+   ├── Replay/forge packets
+   ├── Join network as rogue node
+   └── Control devices or cause DOS
+   DETECTION: Zigbee security mode/key monitoring
+   BYPASS: Use alternate method
+
+7. ZWAVE_ATTACK
+   WHAT: Z-Wave protocol attack
+   HOW:
+   ├── Sniff Z-Wave RF traffic
+   ├── Intercept S0/S2 key exchange
+   ├── Downgrade to legacy security mode
+   ├── Replay/forge Z-Wave commands
+   └── Control locks/sensors
+   DETECTION: Z-Wave key/S2 mode monitoring
+   BYPASS: Use alternate method
+
+8. BLE_EXPLOIT
+   WHAT: BLE (Bluetooth Low Energy) exploitation
+   HOW:
+   ├── Scan BLE devices (Ubertooth/Bluez)
+   ├── Enumerate GATT services
+   ├── Test no-pairing/legacy pairing
+   ├── Send crafted GATT commands
+   └── Hijack device functions
+   DETECTION: BLE pairing/attestation monitoring
+   BYPASS: Use alternate method
 
 IOT_EXPLOIT (5):
-├── device_takeover    — Full device compromise
-├── network_pivot      — IoT network pivot
-├── data_exfil         — IoT data exfiltration
-├── dos_iot            — IoT denial of service
-└── botnet_recruit     — Botnet recruitment
+
+1. DEVICE_TAKEOVER
+   WHAT: Full device compromise
+   HOW:
+   ├── Exploit firmware/device vulnerability
+   ├── Obtain root/shell on device
+   ├── Persist across reboots
+   ├── Deploy tooling and backdoor
+   └── Full control of device
+   DETECTION: Device behavior anomaly/attestation
+   BYPASS: Use alternate method
+
+2. NETWORK_PIVOT
+   WHAT: IoT network pivot
+   HOW:
+   ├── Compromise IoT device
+   ├── Enable forwarding on device
+   ├── Route traffic through device
+   ├── Scan internal network
+   └── Attack internal hosts
+   DETECTION: IoT-origin traffic anomaly
+   BYPASS: Use alternate method
+
+3. DATA_EXFIL
+   WHAT: IoT data exfiltration
+   HOW:
+   ├── Access device storage
+   ├── Compromise cloud sync account
+   ├── Extract sensor data/credentials
+   ├── Use covert exfil channel (DNS/MQTT)
+   └── Send data to attacker server
+   DETECTION: Data egress anomaly detection
+   BYPASS: Use alternate method
+
+4. DOS_IOT
+   WHAT: IoT denial of service
+   HOW:
+   ├── Identify exposed device service
+   ├── Flood device (SYN/UDP)
+   ├── Trigger reboot via updater
+   ├── Disable device functionality
+   └── Persistent bricked state
+   DETECTION: IoT device health/availability monitor
+   BYPASS: Use alternate method
+
+5. BOTNET_RECRUIT
+   WHAT: Botnet recruitment
+   HOW:
+   ├── Exploit default/vulnerable IoT device
+   ├── Deliver bot binary (Mirai-style)
+   ├── Connect device to C2
+   ├── Wait for attack command
+   └── Launch DDoS
+   DETECTION: C2 communication/behavioral detection
+   BYPASS: Use alternate method
 
 FALLBACK:
 Firmware Extract → Default Cred → MQTT Exploit →
 CoAP Exploit → Zigbee → BLE → Device Takeover → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+JTAG/UART physically locked       │ 1. Fall back to OTA firmware fetch
+                                  │ 2. Use default credential testing
+Firmware is encrypted/signed      │ 1. Reduce to runtime analysis
+                                  │ 2. Move to protocol exploitation
+MQTT requires TLS and certs       │ 1. Move to CoAP exploitation
+                                  │ 2. Attempt Zigbee/ZWave vector
+Zigbee uses new security mode     │ 1. Switch to BLE exploitation
+                                  │ 2. Use alternate method
+Device updates wipe persistence   │ 1. Re-exploit via default credentials
+                                  │ 2. Persist via network pivot
+                                  │ 3. Alert operator
 ```
 
 ---
@@ -7036,41 +9159,305 @@ CoAP Exploit → Zigbee → BLE → Device Takeover → ALERT
 
 ```
 PCI_DSS (8):
-├── card_data_scan     — PAN detection scan
-├── encryption_validate│ — Encryption validation (SSL/TLS)
-├── access_control     — Access control testing
-├── network_segment    — Network segmentation testing
-├── vulnerability_scan │ — Vulnerability scanning
-├── penetration_test   — Penetration testing
-├── log_review         — Log review testing
-└── policy_review      — Policy compliance review
+1. CARD_DATA_SCAN
+   WHAT: PAN detection scan menggunakan regex dan network capture
+   HOW:
+   ├── Define PAN regex pattern (Visa, Mastercard, Amex, Discover)
+   ├── Scan database dumps, log files, dan SIEM output
+   ├── Network capture untuk PCI segment traffic
+   ├── Analyze packet payloads untuk card data patterns
+   └── Flag unencrypted PAN storage dan transmission
+   DETECTION: DLP alerts on PAN patterns
+   BYPASS: Use tokenized PAN references
+
+2. ENCRYPTION_VALIDATE
+   WHAT: Encryption validation (SSL/TLS) terhadap cardholder data
+   HOW:
+   ├── TLS version scan (SSLv3, TLS 1.0 disabled check)
+   ├── Certificate chain validation dan expiry check
+   ├── Cipher suite enumeration (weak ciphers: RC4, DES, 3DES)
+   ├── HSTS header verification
+   └── PCI DSS Requirement 4 compliance mapping
+   DETECTION: TLS monitoring and certificate transparency logs
+   BYPASS: Use client-side encryption bypass
+
+3. ACCESS_CONTROL
+   WHAT: Access control testing terhadap cardholder data environment
+   HOW:
+   ├── Enumerate access control lists pada database dan application
+   ├── Test role-based access (DBA, app user, auditor)
+   ├── Attempt privilege escalation via stored procedures
+   ├── Verify least privilege principle
+   └── Test segregation of duties controls
+   DETECTION: Access control audit logs
+   BYPASS: Use compromised service account
+
+4. NETWORK_SEGMENT
+   WHAT: Network segmentation testing untuk cardholder data environment
+   HOW:
+   ├── Map network segments (CDE, P2PE, cardholder data flow)
+   ├── Verify firewall rules between segments
+   ├── Test lateral movement restrictions
+   ├── Validate VLAN isolation dan ACLs
+   └── Document segmentation gaps
+   DETECTION: Network segmentation monitoring
+   BYPASS: Use approved connection pathway
+
+5. VULNERABILITY_SCAN
+   WHAT: Vulnerability scanning pada cardholder data environment
+   HOW:
+   ├── Run authenticated vulnerability scan terhadap CDE
+   ├── Check for missing patches (OS, application, firmware)
+   ├── Configuration baseline review
+   ├── Test for known CVEs in scope systems
+   └── Prioritize findings berdasarkan CVSS score
+   DETECTION: Vulnerability scan detection (IDS/IPS)
+   BYPASS: Use alternate method
+
+6. PENETRATION_TEST
+   WHAT: Penetration testing terhadap cardholder data environment
+   HOW:
+   ├── Scope definition dan rules of engagement
+   ├── External/internal attack simulation
+   ├── Web application testing (OWASP Top 10)
+   ├── Network layer exploitation
+   └── Social engineering components
+   DETECTION: Honeypots dan deception technology
+   BYPASS: Use alternate method
+
+7. LOG_REVIEW
+   WHAT: Log review testing untuk PCI DSS compliance
+   HOW:
+   ├── Verify logging pada all access to CDE
+   ├── Test log integrity (tamper detection)
+   ├── Validate log retention policies (minimum 1 tahun)
+   ├── Review centralized logging configuration
+   └── Test log alerting mechanisms
+   DETECTION: Log integrity monitoring
+   BYPASS: Use alternate method
+
+8. POLICY_REVIEW
+   WHAT: Policy compliance review terhadap PCI DSS requirements
+   HOW:
+   ├── Document inventory (policies, procedures, standards)
+   ├── Gap analysis against PCI DSS v4.0 requirements
+   ├── Review information security policy
+   ├── Validate security awareness training program
+   └── Compile compliance report dengan remediation roadmap
+   DETECTION: Policy audit dan gap analysis
+   BYPASS: Use alternate method
 
 HIPAA (6):
-├── phi_scan           — PHI (Protected Health Information) scan
-├── access_audit       — Access audit testing
-├── encryption_validate│ — Encryption at rest/in transit
-├── backup_validate    — Backup and recovery testing
-├── incident_response  — Incident response testing
-└── baap_review        — Business Associate Agreement review
+1. PHI_SCAN
+   WHAT: PHI (Protected Health Information) scan pada sistem healthcare
+   HOW:
+   ├── Define PHI data patterns (names, MRN, DOB, insurance ID)
+   ├── Scan databases, file shares, dan email systems
+   ├── Network traffic analysis untuk unencrypted PHI
+   ├── Review cloud storage repositories
+   └── Map PHI data flow dan storage locations
+   DETECTION: DLP policies for PHI patterns
+   BYPASS: Use de-identified data references
+
+2. ACCESS_AUDIT
+   WHAT: Access audit testing terhadap PHI systems
+   HOW:
+   ├── Review user access rights to EHR systems
+   ├── Test authentication mechanisms (MFA, SSO)
+   ├── Verify minimum necessary access principle
+   ├── Audit privileged account activity
+   └── Validate termination access procedures
+   DETECTION: Access audit log review
+   BYPASS: Use legitimate access pathway
+
+3. ENCRYPTION_VALIDATE
+   WHAT: Encryption at rest/in transit validation untuk PHI
+   HOW:
+   ├── Verify AES-256 encryption at rest pada databases
+   ├── Test TLS 1.2+ enforcement untuk data in transit
+   ├── Review key management procedures
+   ├── Validate encryption pada portable media
+   └── Test backup encryption mechanisms
+   DETECTION: Encryption monitoring dan key audit
+   BYPASS: Use alternate method
+
+4. BACKUP_VALIDATE
+   WHAT: Backup and recovery testing untuk PHI systems
+   HOW:
+   ├── Verify backup encryption dan access controls
+   ├── Test backup integrity (restore validation)
+   ├── Review backup retention policies (6 tahun minimum)
+   ├── Test disaster recovery procedures
+   └── Validate offsite backup storage security
+   DETECTION: Backup monitoring dan integrity checks
+   BYPASS: Use alternate method
+
+5. INCIDENT_RESPONSE
+   WHAT: Incident response testing untuk HIPAA breach scenarios
+   HOW:
+   ├── Test breach notification procedures (60-day window)
+   ├── Validate incident documentation processes
+   ├── Test containment dan eradication procedures
+   ├── Review forensics capability
+   └── Simulate breach notification ke HHS
+   DETECTION: Incident response plan review
+   BYPASS: Use alternate method
+
+6. BAAP_REVIEW
+   WHAT: Business Associate Agreement review dan vendor risk assessment
+   HOW:
+   ├── Inventory all business associates dengan PHI access
+   ├── Review BAAP terms dan security requirements
+   ├── Assess vendor compliance certifications
+   ├── Test vendor access controls dan monitoring
+   └── Document vendor risk remediation plan
+   DETECTION: Vendor management audit
+   BYPASS: Use alternate method
 
 GDPR (6):
-├── data_mapping       — Data processing mapping
-├── consent_validate   — Consent mechanism validation
-├── right_to_erasure   — Right to erasure testing
-├── data_portability   — Data portability testing
-├── breach_notification│ — Breach notification testing
-└── dpia_review        — Data Protection Impact Assessment
+1. DATA_MAPPING
+   WHAT: Data processing mapping untuk personal data inventory
+   HOW:
+   ├── Identify all personal data collection points
+   ├── Map data flow dari collection ke storage ke deletion
+   ├── Document processing purposes dan legal basis
+   ├── Identify data processors dan sub-processors
+   └── Create Records of Processing Activities (ROPA)
+   DETECTION: Data processing audit trail
+   BYPASS: Use anonymous data pathway
+
+2. CONSENT_VALIDATE
+   WHAT: Consent mechanism validation terhadap GDPR requirements
+   HOW:
+   ├── Test consent collection mechanisms (opt-in, granular)
+   ├── Verify consent withdrawal functionality
+   ├── Check consent records dan audit trails
+   ├── Test cookie consent management platform
+   └── Validate consent for minors (under 16)
+   DETECTION: Consent management audit logs
+   BYPASS: Use legitimate interest basis
+
+3. RIGHT_TO_ERASURE
+   WHAT: Right to erasure testing (Article 17) pada sistem data
+   HOW:
+   ├── Test data subject erasure request workflow
+   ├── Verify complete data removal dari primary systems
+   ├── Check backup dan archive deletion procedures
+   ├── Validate third-party erasure propagation
+   └── Test exception handling (legal hold, freedom of expression)
+   DETECTION: Data deletion audit logs
+   BYPASS: Use alternate method
+
+4. DATA_PORTABILITY
+   WHAT: Data portability testing (Article 20) untuk data export
+   HOW:
+   ├── Test data export functionality (structured, machine-readable)
+   ├── Verify completeness of exported personal data
+   ├── Test JSON/CSV export formats
+   ├── Validate direct transfer ke other controller
+   └── Check export timing dan accessibility
+   DETECTION: Data export monitoring
+   BYPASS: Use alternate method
+
+5. BREACH_NOTIFICATION
+   WHAT: Breach notification testing (Articles 33-34) untuk GDPR compliance
+   HOW:
+   ├── Test 72-hour notification ke supervisory authority
+   ├── Verify data subject notification procedures
+   ├── Test breach assessment methodology
+   ├── Validate breach documentation process
+   └── Simulate cross-border breach notification
+   DETECTION: Breach notification log review
+   BYPASS: Use alternate method
+
+6. DPIA_REVIEW
+   WHAT: Data Protection Impact Assessment review (Article 35)
+   HOW:
+   ├── Identify high-risk processing activities
+   ├── Review DPIA documentation completeness
+   ├── Assess necessity dan proportionality measures
+   ├── Verify DPO consultation process
+   └── Document risk mitigation implementations
+   DETECTION: DPIA audit dan review
+   BYPASS: Use alternate method
 
 ISO27001 (5):
-├── control_audit      — Security control audit
-├── risk_assessment    — Risk assessment validation
-├── policy_compliance  — Policy compliance testing
-├── incident_mgmt     — Incident management testing
-└── bcdr_testing       — Business continuity testing
+1. CONTROL_AUDIT
+   WHAT: Security control audit terhadap ISO 27001 Annex A controls
+   HOW:
+   ├── Map organizational controls ke Annex A domains
+   ├── Test control effectiveness (preventive, detective, corrective)
+   ├── Verify control documentation dan procedures
+   ├── Assess control monitoring mechanisms
+   └── Document control gaps dan remediation
+   DETECTION: Control monitoring dashboard
+   BYPASS: Use alternate method
+
+2. RISK_ASSESSMENT
+   WHAT: Risk assessment validation terhadap ISO 27001 requirements
+   HOW:
+   ├── Review risk assessment methodology
+   ├── Validate risk register completeness
+   ├── Test risk treatment plans
+   ├── Verify risk appetite dan acceptance criteria
+   └── Review residual risk documentation
+   DETECTION: Risk register audit
+   BYPASS: Use alternate method
+
+3. POLICY_COMPLIANCE
+   WHAT: Policy compliance testing terhadap ISMS requirements
+   HOW:
+   ├── Inventory all information security policies
+   ├── Test policy awareness dan acknowledgment
+   ├── Verify policy review cycles (annual minimum)
+   ├── Assess policy enforcement mechanisms
+   └── Document policy exceptions
+   DETECTION: Policy compliance audit
+   BYPASS: Use alternate method
+
+4. INCIDENT_MGMT
+   WHAT: Incident management testing untuk ISO 27001 compliance
+   HOW:
+   ├── Test incident classification procedures
+   ├── Verify incident response timeline documentation
+   ├── Test corrective action implementation
+   ├── Validate incident communication procedures
+   └── Review post-incident lessons learned
+   DETECTION: Incident management audit trail
+   BYPASS: Use alternate method
+
+5. BCDR_TESTING
+   WHAT: Business continuity testing untuk ISO 27001 BCP/DRP
+   HOW:
+   ├── Test business impact analysis (BIA) accuracy
+   ├── Validate recovery time objectives (RTO/RPO)
+   ├── Execute tabletop exercises untuk disaster scenarios
+   ├── Test alternate processing site failover
+   └── Verify communication tree activation
+   DETECTION: BCP/DRP exercise logs
+   BYPASS: Use alternate method
 
 FALLBACK:
 PCI Scan → HIPAA PHI → GDPR Data → ISO Control →
 Access Audit → Encryption Validate → Policy Review → Report
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+PCI DSS scope undefined           │ 1. Auto-discover CDE boundaries
+                                  │ 2. Flag scope for manual review
+                                  │ 3. Proceed with conservative scope
+HIPAA BAAP missing                │ 1. Flag vendor as high-risk
+                                  │ 2. Generate non-compliance alert
+                                  │ 3. Recommend immediate remediation
+GDPR data controller unknown      │ 1. Attempt to identify via data flow
+                                  │ 2. Log identification failure
+                                  │ 3. Escalate to DPO for resolution
+ISO27001 Annex A scope mismatch   │ 1. Map available controls
+                                  │ 2. Flag gaps in control coverage
+                                  │ 3. Generate partial compliance report
 ```
 
 ---
@@ -7079,43 +9466,334 @@ Access Audit → Encryption Validate → Policy Review → Report
 
 ```
 PTES (7):
-├── intelligence_gather│ — Intelligence gathering
-├── threat_modeling    — Threat modeling
-├── vulnerability_assess│ — Vulnerability assessment
-├── exploitation       — Exploitation
-├── post_exploitation  — Post-exploitation
-├── reporting          — Reporting
-└── remediation        — Remediation
+1. INTELLIGENCE_GATHER
+   WHAT: Intelligence gathering menggunakan passive dan active techniques
+   HOW:
+   ├── OSINT collection (WHOIS, DNS, social media, job postings)
+   ├── Identify target infrastructure dan technologies
+   ├── Gather employee information dan email addresses
+   ├── Map publicly accessible services
+   └── Document findings dalam intelligence report
+   DETECTION: OSINT monitoring dan brand alerts
+   BYPASS: Use alternate method
+
+2. THREAT_MODELING
+   WHAT: Threat modeling untuk identifikasi attack vectors
+   HOW:
+   ├── Identify assets, entry points, dan trust boundaries
+   ├── Apply STRIDE/DREAD model untuk threat classification
+   ├── Map threat actors terhadap organizational profile
+   ├── Prioritize threats berdasarkan likelihood dan impact
+   └── Document threat scenarios dalam threat model
+   DETECTION: Threat intelligence correlation
+   BYPASS: Use alternate method
+
+3. VULNERABILITY_ASSESS
+   WHAT: Vulnerability assessment terhadap target systems
+   HOW:
+   ├── Automated vulnerability scanning (Nessus, Qualys, OpenVAS)
+   ├── Manual configuration review
+   ├── Web application vulnerability testing
+   ├── Network service enumeration dan fingerprinting
+   └── Prioritize vulnerabilities berdasarkan exploitability
+   DETECTION: Vulnerability scan detection
+   BYPASS: Use alternate method
+
+4. EXPLOITATION
+   WHAT: Exploitation terhadap identified vulnerabilities
+   HOW:
+   ├── Develop atau obtain exploit code
+   ├── Test exploitation pada staging environment
+   ├── Execute exploitation terhadap production systems
+   ├── Validate successful compromise
+   └── Document exploitation methodology dan results
+   DETECTION: Exploit detection (IDS/IPS, EDR)
+   BYPASS: Use alternate method
+
+5. POST_EXPLOITATION
+   WHAT: Post-exploitation activities setelah successful compromise
+   HOW:
+   ├── Establish persistent access
+   ├── Lateral movement ke additional systems
+   ├── Privilege escalation (horizontal dan vertical)
+   ├── Data exfiltration planning
+   └── Evidence collection dan documentation
+   DETECTION: Post-compromise behavioral analysis
+   BYPASS: Use alternate method
+
+6. REPORTING
+   WHAT: Reporting untuk documentation dan remediation guidance
+   HOW:
+   ├── Executive summary dengan business impact
+   ├── Technical findings dengan reproduction steps
+   ├── Risk ratings (CVSS scoring)
+   ├── Remediation recommendations dengan priorities
+   └── Strategic security improvement roadmap
+   DETECTION: Report review process
+   BYPASS: Use alternate method
+
+7. REMEDIATION
+   WHAT: Remediation verification untuk vulnerability resolution
+   HOW:
+   ├── Verify remediation implementation
+   ├── Test compensating controls
+   ├── Re-scan untuk confirmation
+   ├── Update risk register
+   └── Close remediation tracking tickets
+   DETECTION: Remediation verification audit
+   BYPASS: Use alternate method
 
 OWASP (10):
-├── injection          — Injection testing
-├── broken_auth        — Broken authentication
-├── sensitive_data     — Sensitive data exposure
-├── xxe                — XML external entities
-├── broken_access      — Broken access control
-├── security_misconfig │ — Security misconfiguration
-├── xss                — Cross-site scripting
-├── insecure_deserialize│ — Insecure deserialization
-├── vulnerable_comp    — Vulnerable components
-└── insufficient_log   — Insufficient logging
+1. INJECTION
+   WHAT: Injection testing (SQL, NoSQL, OS, LDAP injection)
+   HOW:
+   ├── Fuzz input fields dengan injection payloads
+   ├── Test SQL injection (union, blind, time-based)
+   ├── Test command injection via parameter injection
+   ├── Test LDAP injection terhadap authentication
+   └── Test OS command injection (shell metacharacters)
+   DETECTION: Input validation alerts dan WAF logs
+   BYPASS: Use alternate method
+
+2. BROKEN_AUTH
+   WHAT: Broken authentication testing
+   HOW:
+   ├── Test credential stuffing resistance
+   ├── Verify account lockout mechanisms
+   ├── Test session management (token generation, expiry)
+   ├── Attempt password brute force
+   └── Test multi-factor authentication bypass
+   DETECTION: Authentication failure monitoring
+   BYPASS: Use alternate method
+
+3. SENSITIVE_DATA
+   WHAT: Sensitive data exposure testing
+   HOW:
+   ├── Scan for sensitive data trong response headers
+   ├── Test for verbose error messages
+   ├── Check for cached sensitive content
+   ├── Verify encryption terhadap sensitive data
+   └── Test for sensitive data trong URL parameters
+   DETECTION: Data exposure monitoring
+   BYPASS: Use alternate method
+
+4. XXE
+   WHAT: XML External Entity (XXE) injection testing
+   HOW:
+   ├── Submit crafted XML payloads ke parser
+   ├── Test file disclosure via XXE
+   ├── Test SSRF via XXE
+   ├── Test denial of service via XXE entity expansion
+   └── Test blind XXE via out-of-band data exfiltration
+   DETECTION: XML parser monitoring
+   BYPASS: Use alternate method
+
+5. BROKEN_ACCESS
+   WHAT: Broken access control testing
+   HOW:
+   ├── Test IDOR (Insecure Direct Object References)
+   ├── Verify role-based access control enforcement
+   ├── Test horizontal privilege escalation
+   ├── Test vertical privilege escalation
+   └── Test forced browsing dan directory traversal
+   DETECTION: Access control violation alerts
+   BYPASS: Use alternate method
+
+6. SECURITY_MISCONFIG
+   WHAT: Security misconfiguration testing
+   HOW:
+   ├── Scan default credentials pada applications
+   ├── Check for unnecessary services dan ports
+   ├── Review cloud storage permissions (S3, Azure Blob)
+   ├── Test for directory listing dan information disclosure
+   └── Verify security headers (CSP, X-Frame-Options)
+   DETECTION: Configuration baseline monitoring
+   BYPASS: Use alternate method
+
+7. XSS
+   WHAT: Cross-site scripting testing (reflected, stored, DOM-based)
+   HOW:
+   ├── Fuzz input fields dengan XSS payloads
+   ├── Test reflected XSS via URL parameters
+   ├── Test stored XSS via persistent input
+   ├── Test DOM-based XSS via client-side code analysis
+   └── Verify Content Security Policy implementation
+   DETECTION: XSS detection dans.Content-Security-Policy monitoring
+   BYPASS: Use alternate method
+
+8. INSECURE_DESERIALIZE
+   WHAT: Insecure deserialization testing
+   HOW:
+   ├── Identify serialization formats (Java, PHP, .NET)
+   ├── Tamper serialized objects untuk privilege escalation
+   ├── Test remote code execution via deserialization
+   ├── Test object injection vulnerabilities
+   └── Verify deserialization validation controls
+   DETECTION: Deserialization anomaly monitoring
+   BYPASS: Use alternate method
+
+9. VULNERABLE_COMP
+   WHAT: Vulnerable components testing (SCA - Software Composition Analysis)
+   HOW:
+   ├── Enumerate application dependencies (npm, pip, maven)
+   ├── Check versions against CVE databases
+   ├── Identify end-of-life components
+   ├── Test for known exploit availability
+   └── Prioritize remediation berdasarkan exploitability
+   DETECTION: Software composition analysis scanning
+   BYPASS: Use alternate method
+
+10. INSUFFICIENT_LOG
+    WHAT: Insufficient logging dan monitoring testing
+    HOW:
+    ├── Verify logging pada authentication events
+    ├── Test logging pada authorization failures
+    ├── Check centralized log aggregation
+    ├── Verify alerting mechanisms untuk suspicious activity
+    └── Test log retention compliance
+    DETECTION: Logging compliance audit
+    BYPASS: Use alternate method
 
 NIST_800_115 (6):
-├── plan_network       — Network testing planning
-├── scan_network       — Network scanning
-├── enumerate_services │ — Service enumeration
-├── identify_vuln      — Vulnerability identification
-├── exploit_vuln       — Vulnerability exploitation
-└── post_exploit       — Post-exploitation
+1. PLAN_NETWORK
+   WHAT: Network testing planning sesuai NIST SP 800-115
+   HOW:
+   ├── Define testing scope dan objectives
+   ├── Identify target networks dan systems
+   ├── Establish rules of engagement
+   ├── Document testing methodology
+   └── Obtain authorization documentation
+   DETECTION: Authorization documentation review
+   BYPASS: Use alternate method
+
+2. SCAN_NETWORK
+   WHAT: Network scanning untuk host discovery dan port enumeration
+   HOW:
+   ├── TCP/UDP port scanning (Nmap, Masscan)
+   ├── Service version detection
+   ├── OS fingerprinting
+   ├── Network topology mapping
+   └── Identify filtering dan access controls
+   DETECTION: Network scanning detection (IDS)
+   BYPASS: Use alternate method
+
+3. ENUMERATE_SERVICES
+   WHAT: Service enumeration untuk detail information gathering
+   HOW:
+   ├── Enumerate running services dan versions
+   ├── Identify default configurations
+   ├── Map service dependencies
+   ├── Test for anonymous access
+   └── Document service-specific vulnerabilities
+   DETECTION: Service enumeration detection
+   BYPASS: Use alternate method
+
+4. IDENTIFY_VULN
+   WHAT: Vulnerability identification menggunakan manual dan automated techniques
+   HOW:
+   ├── Automated vulnerability scanning
+   ├── Manual vulnerability analysis
+   ├── Configuration review
+   ├── Verify findings dengan proof-of-concept
+   └── Document vulnerability details dan impact
+   DETECTION: Vulnerability scanning detection
+   BYPASS: Use alternate method
+
+5. EXPLOIT_VULN
+   WHAT: Vulnerability exploitation untuk proof-of-concept validation
+   HOW:
+   ├── Develop atau obtain exploit code
+   ├── Test exploitation techniques
+   ├── Validate successful exploitation
+   ├── Document exploitation steps
+   └── Capture evidence (screenshots, logs)
+   DETECTION: Exploit detection (EDR, SIEM)
+   BYPASS: Use alternate method
+
+6. POST_EXPLOIT
+   WHAT: Post-exploitation activities untuk impact assessment
+   HOW:
+   ├── Assess data access capabilities
+   ├── Test lateral movement potential
+   ├── Verify persistence mechanisms
+   ├── Document business impact
+   └── Clean up artifacts
+   DETECTION: Post-exploitation behavioral analysis
+   BYPASS: Use alternate method
 
 OSSTMM (5):
-├── human_sectest      — Human security testing
-├── physical_sectest   — Physical security testing
-├── wireless_sectest   — Wireless security testing
-├── network_sectest    — Network security testing
-└── app_sectest        — Application security testing
+1. HUMAN_SECTEST
+   WHAT: Human security testing (social engineering assessment)
+   HOW:
+   ├── Design social engineering scenarios
+   ├── Execute phishing, vishing, physical pretexting
+   ├── Measure human security awareness
+   ├── Document successful compromises
+   └── Recommend training improvements
+   DETECTION: Security awareness monitoring
+   BYPASS: Use alternate method
+
+2. PHYSICAL_SECTEST
+   WHAT: Physical security testing
+   HOW:
+   ├── Test physical access controls (badges, locks, guards)
+   ├── Attempt tailgating dan piggybacking
+   ├── Test surveillance system coverage
+   ├── Verify visitor management procedures
+   └── Document physical security gaps
+   DETECTION: Physical access monitoring
+   BYPASS: Use alternate method
+
+3. WIRELESS_SECTEST
+   WHAT: Wireless security testing
+   HOW:
+   ├── Scan for wireless networks (SSID discovery)
+   ├── Test wireless encryption (WEP, WPA, WPA2, WPA3)
+   ├── Attempt wireless network intrusion
+   ├── Test rogue access point detection
+   └── Verify wireless network segmentation
+   DETECTION: Wireless intrusion detection system (WIDS)
+   BYPASS: Use alternate method
+
+4. NETWORK_SECTEST
+   WHAT: Network security testing
+   HOW:
+   ├── Network infrastructure assessment
+   ├── Test firewall rules dan segmentation
+   ├── Verify network monitoring capabilities
+   ├── Test IDS/IPS effectiveness
+   └── Document network security posture
+   DETECTION: Network security monitoring
+   BYPASS: Use alternate method
+
+5. APP_SECTEST
+   WHAT: Application security testing
+   HOW:
+   ├── Web application security assessment
+   ├── API security testing
+   ├── Mobile application testing (if applicable)
+   ├── Source code review (if available)
+   └── Document application vulnerabilities
+   DETECTION: Application security monitoring
+   BYPASS: Use alternate method
 
 FALLBACK:
 PTES → OWASP → NIST → OSSTMM → Custom Methodology → Report
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Target blocks automated scanners  │ 1. Switch to manual testing
+                                  │ 2. Use slow-rate scanning
+                                  │ 3. Pivot to passive reconnaissance
+Multiple methodologies required   │ 1. Merge PTES + OWASP frameworks
+                                  │ 2. Create composite methodology
+                                  │ 3. Prioritize by risk ranking
+False positive vulnerability      │ 1. Attempt manual verification
+                                  │ 2. Test proof-of-concept
+                                  │ 3. Downgrade severity if unconfirmed
 ```
 
 ---
@@ -7124,34 +9802,246 @@ PTES → OWASP → NIST → OSSTMM → Custom Methodology → Report
 
 ```
 COMMUNICATION (6):
-├── encrypted_comms    — Encrypted communication (Signal, Wire)
-├── dead_drop          — Dead drop communication
-├── covert_channel     — Covert channel (DNS, steganography)
-├── code_words         — Code word system
-├── check_in           — Regular check-in schedule
-└── emergency_beacon   — Emergency beacon protocol
+1. ENCRYPTED_COMMS
+   WHAT: Encrypted communication menggunakan Signal, Wire, atau Matrix
+   HOW:
+   ├── Configure end-to-end encrypted messaging platform
+   ├── Set disappearing messages (24-72 jam)
+   ├── Verify safety numbers dengan out-of-band confirmation
+   ├── Disable cloud backup dan notification previews
+   └── Rotate communication channels secara periodic
+   DETECTION: Encrypted messaging usage analysis
+   BYPASS: Use alternate method
+
+2. DEAD_DROP
+   WHAT: Dead drop communication untuk asynchronous operational messaging
+   HOW:
+   ├── Create encrypted file pada shared platform (pastebin, cloud storage)
+   ├── Write message dengan agreed encryption layer
+   ├── Notify partner menggunakan trigger indicator
+   ├── Partner retrieves dan decrypts message
+   └── Destroy original file dan access logs
+   DETECTION: Unusual file access patterns
+   BYPASS: Use alternate method
+
+3. COVERT_CHANNEL
+   WHAT: Covert channel communication via DNS atau steganography
+   HOW:
+   ├── Encode data dalam DNS queries (DNS tunneling)
+   ├── Or embed data dalam image files (steganography)
+   ├── Or use HTTP header fields untuk data transport
+   ├── Transmit via normal-looking traffic
+   └── Receiver decodes data dengan shared key
+   DETECTION: DNS anomaly analysis, traffic pattern analysis
+   BYPASS: Use alternate method
+
+4. CODE_WORDS
+   WHAT: Code word system untuk operational communication
+   HOW:
+   ├── Establish codeword dictionary (targets, actions, status)
+   ├── Distribute codeword list secara secure
+   ├── Use codewords dalam routine communications
+   ├── Rotate codeword sets secara periodic
+   └── Maintain separate operational dan personal communications
+   DETECTION: Pattern analysis pada communication frequency
+   BYPASS: Use alternate method
+
+5. CHECK_IN
+   WHAT: Regular check-in schedule untuk operational coordination
+   HOW:
+   ├── Establish check-in schedule (daily/weekly)
+   ├── Define check-in format dan channel
+   ├── Document status updates dan task completions
+   ├── Verify partner availability
+   └── Escalate missed check-ins sesuai protocol
+   DETECTION: Communication pattern analysis
+   BYPASS: Use alternate method
+
+6. EMERGENCY_BEACON
+   WHAT: Emergency beacon protocol untuk urgent operational situations
+   HOW:
+   ├── Pre-arrange emergency signal mechanism
+   ├── Establish emergency communication channel
+   ├── Define emergency classification levels
+   ├── Test emergency procedures secara regular
+   └── Document emergency response procedures
+   DETECTION: Unusual communication frequency spike
+   BYPASS: Use alternate method
 
 DATA_HANDLING (6):
-├── encrypt_data       — Data encryption at rest
-├── secure_transfer    — Secure data transfer
-├── access_control     — Data access control
-├── audit_trail        — Data audit trail
-├── secure_deletion    — Secure data deletion
-└── chain_of_custody   — Chain of custody documentation
+1. ENCRYPT_DATA
+   WHAT: Data encryption at rest menggunakan AES-256 atau ChaCha20
+   HOW:
+   ├── Encrypt operational data dengan strong algorithm
+   ├── Use hardware-backed key storage (TPM, secure enclave)
+   ├── Implement key rotation schedule
+   ├── Verify encryption strength (key length, entropy)
+   └── Test decryption procedures secara regular
+   DETECTION: Encryption key usage monitoring
+   BYPASS: Use alternate method
+
+2. SECURE_TRANSFER
+   WHAT: Secure data transfer menggunakan encrypted channels
+   HOW:
+   ├── Use SFTP/SCP untuk file transfer
+   ├── Or use encrypted archive (GPG, age)
+   ├── Verify recipient identity sebelum transfer
+   ├── Use VPN atau Tor untuk anonymous transfer
+   └── Log transfer audit trail
+   DETECTION: Encrypted transfer monitoring
+   BYPASS: Use alternate method
+
+3. ACCESS_CONTROL
+   WHAT: Data access control untuk operational data protection
+   HOW:
+   ├── Implement least privilege access model
+   ├── Use role-based access controls (RBAC)
+   ├── Enable multi-factor authentication
+   ├── Monitor access patterns dan anomalies
+   └── Review access rights secara periodic
+   DETECTION: Access anomaly detection
+   BYPASS: Use alternate method
+
+4. AUDIT_TRAIL
+   WHAT: Data audit trail untuk operational accountability
+   HOW:
+   ├── Enable comprehensive audit logging
+   ├── Log all data access, modification, dan deletion
+   ├── Use tamper-evident logging mechanism
+   ├── Monitor audit logs secara regular
+   └── Retain audit records sesuai policy
+   DETECTION: Audit log integrity monitoring
+   BYPASS: Use alternate method
+
+5. SECURE_DELETION
+   WHAT: Secure data deletion menggunakan cryptographic erasure
+   HOW:
+   ├── Overwrite data dengan multiple passes (DoD 5220.22-M)
+   ├── Or use cryptographic erasure (destroy encryption key)
+   ├── Verify deletion di所有存储介质
+   ├── Document deletion procedures
+   └── Test deletion verification
+   DETECTION: Data deletion monitoring
+   BYPASS: Use alternate method
+
+6. CHAIN_OF_CUSTODY
+   WHAT: Chain of custody documentation untuk evidence integrity
+   HOW:
+   ├── Document evidence handling procedures
+   ├── Log all evidence transfers
+   ├── Maintain physical dan digital custody logs
+   ├── Use tamper-evident seals
+   └── Verify evidence integrity secara periodic
+   DETECTION: Chain of custody audit
+   BYPASS: Use alternate method
 
 OPERATIONAL_SECURITY (8):
-├── cover_identity     — Cover identity management
-├── digital_hygiene    — Digital hygiene practices
-├── physical_security  — Physical security measures
-├── travel_security    — Travel security protocols
-├── device_security    — Device security (burner phones, VMs)
-├── network_anonymity  — Network anonymity (Tor, VPN)
-├── evidence_handling  — Evidence handling procedures
-└── extraction_plan    — Extraction plan
+1. COVER_IDENTITY
+   WHAT: Cover identity management untuk operational concealment
+   HOW:
+   ├── Establish plausible cover identity dengan supporting documentation
+   ├── Create digital footprint (social media, email, profiles)
+   ├── Maintain separation antara cover dan real identity
+   ├── Practice cover identity persona secara regular
+   └── Plan cover identity lifecycle (creation, maintenance, retirement)
+   DETECTION: Identity verification processes
+   BYPASS: Use alternate method
+
+2. DIGITAL_HYGIENE
+   WHAT: Digital hygiene practices untuk operational security
+   HOW:
+   ├── Regular browser history dan cache cleanup
+   ├── Use dedicated operational browser profile
+   ├── Disable telemetry dan tracking
+   ├── Regular system integrity verification
+   └── Use privacy-focused OS configurations
+   DETECTION: Digital footprint analysis
+   BYPASS: Use alternate method
+
+3. PHYSICAL_SECURITY
+   WHAT: Physical security measures untuk operational protection
+   HOW:
+   ├── Assess physical threats terhadap operational sites
+   ├── Implement physical access controls
+   ├── Use surveillance detection routes (SDR)
+   ├── Maintain situational awareness
+   └── Plan physical security response procedures
+   DETECTION: Physical surveillance detection
+   BYPASS: Use alternate method
+
+4. TRAVEL_SECURITY
+   WHAT: Travel security protocols untuk operational travel
+   HOW:
+   ├── Pre-trip threat assessment
+   ├── Use travel-dedicated devices
+   ├── Implement device search protocols
+   ├── Maintain communication check-in schedule
+   └── Plan border crossing procedures
+   DETECTION: Travel pattern analysis
+   BYPASS: Use alternate method
+
+5. DEVICE_SECURITY
+   WHAT: Device security menggunakan burner phones, VMs, dan encrypted storage
+   HOW:
+   ├── Use burner devices untuk operational activities
+   ├── Isolate operational activities dalam VMs
+   ├── Enable full disk encryption pada所有设备
+   ├── Disable unnecessary hardware (camera, mic, GPS)
+   └── Plan device disposal procedures
+   DETECTION: Device fingerprinting dan IMEI tracking
+   BYPASS: Use alternate method
+
+6. NETWORK_ANONYMITY
+   WHAT: Network anonymity menggunakan Tor, VPN, dan proxy chains
+   HOW:
+   ├── Route traffic via Tor network
+   ├── Chain multiple VPN providers
+   ├── Use proxy chains untuk additional layers
+   ├── Monitor network leaks (DNS, WebRTC)
+   └── Rotate network identities secara periodic
+   DETECTION: Tor exit node monitoring, VPN detection
+   BYPASS: Use alternate method
+
+7. EVIDENCE_HANDLING
+   WHAT: Evidence handling procedures untuk operational integrity
+   HOW:
+   ├── Document evidence collection procedures
+   ├── Maintain forensic integrity (write blockers)
+   ├── Store evidence dalam secure facility
+   ├── Log all evidence access
+   └── Prepare evidence untuk legal proceedings
+   DETECTION: Evidence tampering detection
+   BYPASS: Use alternate method
+
+8. EXTRACTION_PLAN
+   WHAT: Extraction plan untuk operational withdrawal
+   HOW:
+   ├── Define extraction triggers dan conditions
+   ├── Plan extraction routes dan fallbacks
+   ├── Pre-position extraction resources
+   ├── Practice extraction procedures
+   └── Document extraction success criteria
+   DETECTION: Extraction activity monitoring
+   BYPASS: Use alternate method
 
 FALLBACK:
 Encrypted Comms → Dead Drop → Covert Channel →
 Code Words → Check-in → Emergency Beacon → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Encrypted comms platform seized   │ 1. Switch to dead drop communication
+                                  │ 2. Activate emergency beacon
+                                  │ 3. Assume cover identity
+Cover identity compromised        │ 1. Initiate extraction plan
+                                  │ 2. Destroy sensitive data
+                                  │ 3. Activate alternate identity
+Network anonymity failure         │ 1. Disable all network access
+                                  │ 2. Switch to physical courier
+                                  │ 3. Use pre-arranged fallback channel
 ```
 
 ---
@@ -7160,24 +10050,157 @@ Code Words → Check-in → Emergency Beacon → ALERT
 
 ```
 CROSS_CLOUD (6):
-├── aws_to_azure       — Cross-cloud pivot (AWS → Azure)
-├── aws_to_gcp         — Cross-cloud pivot (AWS → GCP)
-├── azure_to_gcp       — Cross-cloud pivot (Azure → GCP)
-├── hybrid_attack      — Hybrid cloud attack
-├── multi_cloud_enum   — Multi-cloud enumeration
-└── federation_abuse   — Federated identity abuse
+1. AWS_TO_AZURE
+   WHAT: Cross-cloud pivot dari AWS ke Azure menggunakan compromised credentials
+   HOW:
+   ├── Harvest AWS credentials (IAM keys, role assumption)
+   ├── Identify Azure-linked accounts atau federated identities
+   ├── Assume Azure role atau authenticate sebagai user
+   ├── Enumerate Azure resources dan permissions
+   └── Establish persistent access ke Azure environment
+   DETECTION: Cross-cloud authentication anomaly
+   BYPASS: Use alternate method
+
+2. AWS_TO_GCP
+   WHAT: Cross-cloud pivot dari AWS ke GCP
+   HOW:
+   ├── Extract GCP credentials dari AWS systems (environment variables, config)
+   ├── Or use compromised GCP service account keys stored trong AWS
+   ├── Authenticate ke GCP API
+   ├── Enumerate GCP projects dan resources
+   └── Establish persistent access ke GCP environment
+   DETECTION: Cross-cloud API access monitoring
+   BYPASS: Use alternate method
+
+3. AZURE_TO_GCP
+   WHAT: Cross-cloud pivot dari Azure ke GCP
+   HOW:
+   ├── Identify GCP credentials trong Azure Key Vault atau config
+   ├── Or use federated identity attributes
+   ├── Authenticate ke GCP using extracted credentials
+   ├── Map Azure-to-GCP resource relationships
+   └── Establish persistent access
+   DETECTION: Cross-cloud authentication logging
+   BYPASS: Use alternate method
+
+4. HYBRID_ATTACK
+   WHAT: Hybrid cloud attack menggunakan on-premise ke cloud pivot
+   HOW:
+   ├── Compromise on-premise infrastructure
+   ├── Identify cloud sync mechanisms (Azure AD Connect, AWS Directory Service)
+   ├── Harvest cloud credentials từ hybrid identity
+   ├── Pivot ke cloud environment
+   └── Establish persistence across both environments
+   DETECTION: Hybrid identity authentication monitoring
+   BYPASS: Use alternate method
+
+5. MULTI_CLOUD_ENUM
+   WHAT: Multi-cloud enumeration untuk asset discovery
+   HOW:
+   ├── Enumerate AWS (IAM, EC2, S3, Lambda)
+   ├── Enumerate Azure (AD, VMs, Storage, Functions)
+   ├── Enumerate GCP (IAM, Compute, Storage, Functions)
+   ├── Map cross-cloud dependencies
+   └── Identify highest-value targets across clouds
+   DETECTION: Cross-cloud API activity monitoring
+   BYPASS: Use alternate method
+
+6. FEDERATION_ABUSE
+   WHAT: Federated identity abuse untuk cross-cloud access
+   HOW:
+   ├── Identify federation configurations (SAML, OIDC, WS-Federation)
+   ├── Manipulate identity assertions
+   ├── Perform token relay attacks
+   ├── Exploit trust relationships
+   └── Maintain access via federation mechanism
+   DETECTION: Federation trust anomaly monitoring
+   BYPASS: Use alternate method
 
 CLOUD_NATIVE (6):
-├── serverless_attack  — Lambda/Functions exploitation
-├── container_attack   — Container service exploitation
-├── service_mesh      — Service mesh (Istio/Linkerd) exploitation
-├── api_gateway_attack │ — API Gateway exploitation
-├── cdn_attack         — CDN exploitation
-└── dns_cloud_attack   — Cloud DNS exploitation
+1. SERVERLESS_ATTACK
+   WHAT: Lambda/Functions exploitation untuk code execution
+   HOW:
+   ├── Identify serverless functions (AWS Lambda, Azure Functions, GCP Cloud Functions)
+   ├── Extract source code dan environment variables
+   ├── Inject malicious code via deployment package
+   ├── Trigger function execution
+   └── Use function IAM role untuk further access
+   DETECTION: Serverless function invocation monitoring
+   BYPASS: Use alternate method
+
+2. CONTAINER_ATTACK
+   WHAT: Container service exploitation (ECS, AKS, GKE)
+   HOW:
+   ├── Access container orchestration API
+   ├── Enumerate running containers dan services
+   ├── Deploy malicious container dengan host access
+   ├── Extract container secrets (env vars, mounted secrets)
+   └── Pivot ke underlying infrastructure
+   DETECTION: Container runtime monitoring (Falco)
+   BYPASS: Use alternate method
+
+3. SERVICE_MESH
+   WHAT: Service mesh exploitation (Istio, Linkerd, Consul Connect)
+   HOW:
+   ├── Access service mesh control plane
+   ├── Enumerate service mesh configuration
+   ├── Manipulate routing rules
+   ├── Intercept service-to-service communication
+   └── Extract mTLS certificates
+   DETECTION: Service mesh control plane monitoring
+   BYPASS: Use alternate method
+
+4. API_GATEWAY_ATTACK
+   WHAT: API Gateway exploitation untuk unauthorized API access
+   HOW:
+   ├── Enumerate API Gateway endpoints dan routes
+   ├── Test API key or token bypass
+   ├── Manipulate request routing
+   ├── Extract backend service credentials
+   └── Abuse API rate limiting mechanisms
+   DETECTION: API Gateway access logging
+   BYPASS: Use alternate method
+
+5. CDN_ATTACK
+   WHAT: CDN exploitation untuk content poisoning dan cache manipulation
+   HOW:
+   ├── Identify CDN provider dan configuration
+   ├── Poison cached content via origin manipulation
+   ├── Exploit cache key weaknesses
+   ├── Inject malicious content into CDN edge nodes
+   └── Use CDN misconfiguration untuk origin access
+   DETECTION: CDN cache integrity monitoring
+   BYPASS: Use alternate method
+
+6. DNS_CLOUD_ATTACK
+   WHAT: Cloud DNS exploitation untuk traffic manipulation
+   HOW:
+   ├── Access cloud DNS management API
+   ├── Modify DNS records untuk traffic redirection
+   ├── Exploit DNS-based authentication (DKIM, SPF, DMARC)
+   ├── Create subdomain delegation untuk persistence
+   └── Manipulate DNS-based load balancing
+   DETECTION: DNS change monitoring và alerts
+   BYPASS: Use alternate method
 
 FALLBACK:
 AWS Pivot → Azure Pivot → GCP Pivot →
 Hybrid Attack → Federation Abuse → Multi-Cloud Enum → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Cross-cloud credentials expired   │ 1. Re-authenticate using refresh token
+                                  │ 2. Attempt credential rotation
+                                  │ 3. Fall back to service account
+Cloud API rate limiting           │ 1. Implement exponential backoff
+                                  │ 2. Distribute requests across regions
+                                  │ 3. Switch to direct API access
+Federation trust chain broken     │ 1. Attempt direct authentication
+                                  │ 2. Use alternate identity provider
+                                  │ 3. Log trust chain failure
 ```
 
 ---
@@ -7186,16 +10209,115 @@ Hybrid Attack → Federation Abuse → Multi-Cloud Enum → ALERT
 
 ```
 WEB_MISC (10):
-├── host_header_inject │ — Host header injection
-├── sms_smuggling      — SMS header injection
-├── email_injection    — Email header injection
-├── log_injection      — Log injection (log forging)
-├── header_injection   — HTTP header injection
-├── response_splitting│ — HTTP response splitting
-├── session_fixation   — Session fixation attack
-├── clickjacking       — Clickjacking (UI redressing)
-├── tabnabbing         — Reverse tabnabbing
-└── prototype_pollution│ — JavaScript prototype pollution
+1. HOST_HEADER_INJECT
+   WHAT: Host header injection untuk cache poisoning dan password reset poisoning
+   HOW:
+   ├── Send request dengan modified Host header
+   ├── Test password reset poisoning via Host header manipulation
+   ├── Exploit web cache poisoning via Host-based cache key
+   ├── Inject malicious URL trong password reset emails
+   └── Test virtual host routing bypass
+   DETECTION: Host header validation alerts
+   BYPASS: Use alternate method
+
+2. SMS_SMUGGLING
+   WHAT: SMS header injection untuk message manipulation
+   HOW:
+   ├── Identify SMS-sending functionality
+   ├── Inject additional headers atau content dalam SMS
+   ├── Manipulate sender address atau routing information
+   ├── Test for SMS content injection vulnerabilities
+   └── Exploit SMS gateway misconfigurations
+   DETECTION: SMS gateway logging dan monitoring
+   BYPASS: Use alternate method
+
+3. EMAIL_INJECTION
+   WHAT: Email header injection untuk email manipulation
+   HOW:
+   ├── Identify email-sending forms (contact, feedback)
+   ├── Inject additional email headers (BCC, CC, Subject)
+   ├── Inject additional recipients
+   ├── Manipulate email routing headers
+   └── Test for email content injection
+   DETECTION: Email gateway anomaly detection
+   BYPASS: Use alternate method
+
+4. LOG_INJECTION
+   WHAT: Log injection (log forging) untuk log manipulation
+   HOW:
+   ├── Inject log entries via user-controlled input
+   ├── Forge log entries untuk misdirection
+   ├── Inject newlines untuk log entry splitting
+   ├── Exploit log analysis tools (XSS trong log viewers)
+   └── Test log integrity mechanisms
+   DETECTION: Log integrity monitoring
+   BYPASS: Use alternate method
+
+5. HEADER_INJECTION
+   WHAT: HTTP header injection untuk response manipulation
+   HOW:
+   ├── Inject CRLF sequences dalam HTTP headers
+   ├── Split HTTP response
+   ├── Inject set-cookie headers
+   ├── Manipulate caching headers
+   └── Test for header injection via redirect parameters
+   DETECTION: HTTP response splitting detection
+   BYPASS: Use alternate method
+
+6. RESPONSE_SPLITTING
+   WHAT: HTTP response splitting untuk cache poisoning dan XSS
+   HOW:
+   ├── Inject CRLF characters dalam header values
+   ├── Split HTTP response ke multiple responses
+   ├── Inject malicious content dalam response body
+   ├── Poison web caches dengan split responses
+   └── Execute XSS via injected response content
+   DETECTION: HTTP response integrity monitoring
+   BYPASS: Use alternate method
+
+7. SESSION_FIXATION
+   WHAT: Session fixation attack untuk unauthorized session access
+   HOW:
+   ├── Set predefined session identifier
+   ├── Lure victim ke authenticate dengan fixed session ID
+   ├── After authentication, hijack authenticated session
+   ├── Test session ID regeneration after login
+   └── Exploit session cookie attributes (HttpOnly, Secure)
+   DETECTION: Session fixation anomaly detection
+   BYPASS: Use alternate method
+
+8. CLICKJACKING
+   WHAT: Clickjacking (UI redressing) untuk unauthorized user actions
+   HOW:
+   ├── Create malicious page dengan invisible iframe
+   ├── Overlay transparent target page
+   ├── Trick user ke click invisible elements
+   ├── Exploit missing X-Frame-Options header
+   └── Test CSP frame-ancestors directive
+   DETECTION: X-Frame-Options missing detection
+   BYPASS: Use alternate method
+
+9. TABNABBING
+   WHAT: Reverse tabnabbing untuk session hijacking
+   HOW:
+   ├── Create page dengan target="_blank" links
+   ├── Inject malicious JavaScript pada opener page
+   ├── Redirect original tab ke phishing page
+   ├── Exploit missing rel="noopener noreferrer"
+   └── Hijack session setelah user authentication
+   DETECTION: Tab navigation monitoring
+   BYPASS: Use alternate method
+
+10. PROTOTYPE_POLLUTION
+    WHAT: JavaScript prototype pollution untuk client-side code execution
+    HOW:
+    ├── Identify prototype pollution gadgets trong JavaScript libraries
+    ├── Inject malicious properties ke Object.prototype
+    ├── Exploit pollution gadgets untuk XSS
+    ├── Manipulate application state via polluted prototypes
+    └── Test for server-side prototype pollution
+    DETECTION: Prototype pollution detection tools
+    BYPASS: Use alternate method
 
 FALLBACK:
 Host Header → SMS Smuggling → Email Injection →
@@ -7203,7 +10325,26 @@ Log Injection → Header Injection → Session Fixation →
 Clickjacking → Tabnabbing → Prototype Pollution → ALERT
 ```
 
----
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Host header filtering active      │ 1. Try X-Forwarded-Host header
+                                  │ 2. Use IP address directly
+                                  │ 3. Bypass via reverse proxy
+CSP blocks prototype pollution    │ 1. Identify alternative gadgets
+                                  │ 2. Use DOM-based pollution
+                                  │ 3. Target server-side pollution
+Session fixation regeneration OK  │ 1. Switch to session fixation via subdomain
+                                  │ 2. Attempt cookie injection
+                                  │ 3. Use session fixation via XSS
+Clickjacking frames blocked       │ 1. Try nested frames
+                                  │ 2. Use alternative overlay technique
+                                  │ 3. Switch to tabnabbing
+Email injection sanitization      │ 1. Try different injection points
+                                  │ 2. Use encoded CRLF sequences
+                                  │ 3. Bypass via Unicode normalization
+```
 
 ## 10. MODUL TAMBAHAN v3.1 (LAYER 61–70)
 
@@ -7211,42 +10352,323 @@ Clickjacking → Tabnabbing → Prototype Pollution → ALERT
 
 ```
 BUFFER_OVERFLOW (8):
-├── stack_overflow     — Stack-based buffer overflow
-├── heap_overflow      — Heap-based buffer overflow
-├── stack_pivot        — Stack pivot / stack smashing
-├── ret2libc           — Return to libc attack
-├── ret2plt            — Return to PLT (GOT overwrite)
-├── ret2win            — Ret2win / CTF-style exploitation
-├── srop               — Sigreturn-oriented programming
-└── blind_overflow     — Blind buffer overflow (no output)
+
+1. STACK_OVERFLOW
+   WHAT: Stack-based buffer overflow untuk overwrite return address
+   HOW:
+   ├── Cari input vector (form, cookie, header) yang di-copy ke stack buffer
+   ├── Tentukan offset ke return address (pattern create + cyclic)
+   ├── Overwrite return address dengan address shellcode atau gadget
+   ├── Inject shellcode atau arahkan ke ROP chain
+   └── Trigger overflow → control hijack → code execution
+   DETECTION: Stack canary (SSP), ASLR monitoring, stack pivot detection
+   BYPASS: Bypass stack canary via info leak atau use alternative method
+
+2. HEAP_OVERFLOW
+   WHAT: Heap-based buffer overflow untuk corrupt heap metadata
+   HOW:
+   ├── Identify heap-allocated buffer (malloc/calloc)
+   ├── Overflow heap chunk header atau adjacent object
+   ├── Corrupt fd/bk pointer untuk arbitrary write (unlink)
+   ├── Control heap allocator → redirect allocation ke target address
+   └── Trigger reallocation → overwrite target → code execution
+   DETECTION: Heap integrity checks, metadata validation
+   BYPASS: Use alternative heap exploitation technique
+
+3. STACK_PIVOT
+   WHAT: Stack pivot untuk memindahkan stack pointer ke controlled memory
+   HOW:
+   ├── Allocate RWX memory berisi ROP chain
+   ├── Gunakan gadget (xchg rsp, rax / add rsp, ...) untuk pivot
+   ├── Control RSP → point ke attacker-controlled stack
+   ├── Execute ROP chain dari new stack
+   └── Return ke shellcode atau system()
+   DETECTION: Stack pivot detection, RSP monitoring
+   BYPASS: Use alternative pivot gadget
+
+4. RET2LIBC
+   WHAT: Return ke libc function untuk bypass NX/DEP
+   HOW:
+   ├── Overwrite return address ke system() atau execve()
+   ├── Set argument pointer ke "/bin/sh" atau controlled buffer
+   ├── Handle ASLR dengan info leak atau brute-force
+   ├── Align stack sesuai ABI requirement
+   └── Trigger return → libc function executes
+   DETECTION: libc function execution monitoring
+   BYPASS: Use alternative libc function
+
+5. RET2PLT
+   WHAT: Return ke PLT untuk bypass ASLR (static addresses)
+   HOW:
+   ├── Overwrite GOT entry dengan target function address
+   ├── Use format string atau other write primitive
+   ├── Redirect PLT call ke attacker-controlled address
+   ├── Chain ke main loop untuk stable exploit
+   └── Trigger PLT call → redirected execution
+   DETECTION: GOT integrity checks, PLT monitoring
+   BYPASS: Use alternative GOT overwrite method
+
+6. RET2WIN
+   WHAT: Redirect ke pre-existing win function dalam binary
+   HOW:
+   ├── Cari "win" function atau gadget dalam binary
+   ├── Overwrite return address ke win function
+   ├── Set parameter sesuai win function requirement
+   ├── Trigger overflow → return ke win function
+   └── Win function executes → shell/flag
+   DETECTION: Function call integrity, return address validation
+   BYPASS: Use alternative win function
+
+7. SROP
+   WHAT: Sigreturn-oriented programming untuk full register control
+   HOW:
+   ├── Forge fake sigframe di stack atau controlled memory
+   ├── Set semua registers dalam sigframe (RDI, RSI, RDX, etc.)
+   ├── Trigger sigreturn syscall (syscall number 15)
+   ├── Kernel restores registers dari sigframe
+   └── Execute execve("/bin/sh") via restored registers
+   DETECTION: Sigreturn syscall monitoring, register state validation
+   BYPASS: Use alternative SROP chain
+
+8. BLIND_OVERFLOW
+   WHAT: Blind buffer overflow tanpa output atau error feedback
+   HOW:
+   ├── Identify overflow vulnerability tanpa visual feedback
+   ├── Use time-based atau side-channel untuk confirm overflow
+   ├── Brute-force return address atau canary (ASLR/SSP)
+   ├── Implement retry loop dengan exponential backoff
+   └── Trigger overflow → confirm via callback atau DNS
+   DETECTION: Repeated connection attempts, timing anomalies
+   BYPASS: Use alternative blind technique
 
 HEAP_EXPLOIT (8):
-├── heap_spray         — Heap spraying
-├── uaf                — Use-after-free
-├── double_free        — Double free
-├── heap_feng_shui     — Heap feng shui
-├── unlink             — Unlink abuse (fastbin/tcache)
-├── poison_null        — Null byte poisoning
-├── house_of_force     — House of Force
-└── house_of_orange    — House of Orange
+
+1. HEAP_SPRAY
+   WHAT: Heap spraying untuk mengisi heap dengan controlled data
+   HOW:
+   ├── Allocate banyak objects (JavaScript String, etc.)
+   ├── Isi setiap object dengan NOP sled + shellcode
+   ├── Trigger GC atau compact untuk posisi predictabel
+   ├── Allocate target object di atas NOP sled
+   └── Jump ke sprayed region → shellcode executes
+   DETECTION: Excessive memory allocation patterns
+   BYPASS: Use alternative spray target
+
+2. UAF
+   WHAT: Use-after-free exploit untuk reclaim freed memory
+   HOW:
+   ├── Allocate object → trigger free (browser GC, mem management)
+   ├── Allocate new object di slot yang sama (reclaim)
+   ├── Controlled data di new object overwrite freed object internals
+   ├── Trigger use of freed object → dereference corrupted pointer
+   └── Execute controlled function pointer atau virtual call
+   DETECTION: Memory use-after-free monitoring
+   BYPASS: Use alternative UAF target
+
+3. DOUBLE_FREE
+   WHAT: Double free exploit untuk corrupt tcache/fastbin
+   HOW:
+   ├── Allocate chunk A → free chunk A → free chunk A lagi
+   ├── Tcache/fastbin sekarang punya pointer balik ke A
+   ├── Allocate chunk B → reclaim slot A → controlled data
+   ├── Free chunk B → corrupt tcache/fastbin metadata
+   └── Allocate → return arbitrary address → arbitrary write
+   DETECTION: Double free detection, tcache integrity checks
+   BYPASS: Use alternative free list poisoning
+
+4. HEAP_FENG_SHUI
+   WHAT: Heap layout manipulation untuk predictabel exploitation
+   HOW:
+   ├── Allocate dan free objects dalam urutan tertentu
+   ├── Manipulate hole/chunk layout di heap
+   ├── Position target object di offset yang diketahui
+   ├── Trigger vulnerability dengan layout yang predictabel
+   └── Exploit dengan offset yang dikalkulasi
+   DETECTION: Unusual heap allocation patterns
+   BYPASS: Use alternative layout technique
+
+5. UNLINK
+   WHAT: Unlink abuse pada fastbin/tcache untuk arbitrary write
+   HOW:
+   ├── Allocate victim chunk → corrupt fd pointer
+   ├── Free corrupted chunk ke tcache/fastbin
+   ├── Alloc → return victim chunk → alloc lagi → reclaim slot
+   ├── Victim chunk overwrite target address
+   └── Trigger allocation → arbitrary write ke target
+   DETECTION: Tcache/fastbin metadata integrity checks
+   BYPASS: Use alternative unlink technique
+
+6. POISON_NULL
+   WHAT: Null byte poisoning untuk shift chunk boundaries
+   HOW:
+   ├── Allocate victim chunk A → free → reallocate sebagai B
+   ├── Overflow B dengan null byte → corrupt A's size field
+   ├── Size field shrinks → merge arena boundaries
+   ├── Trigger consolidation → overlapping chunks
+   └── Overlap depan belakang → arbitrary read/write
+   DETECTION: Chunk size validation, arena consistency
+   BYPASS: Use alternative poisoning technique
+
+7. HOUSE_OF_FORCE
+   WHAT: House of Force exploit untuk arbitrary malloc
+   HOW:
+   ├── Overwrite top chunk size dengan -1 (0xffffffffffffffff)
+   ├── Calculate distance ke target address
+   ├── Malloc dengan calculated size → top chunk pointer wrap
+   ├── Next malloc return target address
+   └── Write controlled data ke target address
+   DETECTION: Top chunk size validation
+   BYPASS: Use alternative top chunk manipulation
+
+8. HOUSE_OF_ORANGE
+   WHAT: House of Orange untuk bypass top chunk constraint
+   HOW:
+   ├── Corrupt top chunk size ke ukuran lebih kecil
+   ├── Allocate sampai top chunk boundary
+   ├── Old top chunk dikirim ke unsorted bin
+   ├── Allocate dari unsorted bin → fake fd/bk
+   └── Leak address → tcache poisoning → arbitrary write
+   DETECTION: Top chunk size anomaly detection
+   BYPASS: Use alternative orange technique
 
 FORMAT_STRING (4):
-├── format_read        — Format string memory leak
-├── format_write       — Format string arbitrary write
-├── format_overwrite   — GOT overwrite via format string
-└── format_payload     — Format string payload generator
+
+1. FORMAT_READ
+   WHAT: Format string vulnerability untuk memory leak
+   HOW:
+   ├── Identify format string input (%x, %p, %n)
+   ├── Submit format string payload ke vulnerable function
+   ├── Baca stack values dari format output (%x, %p)
+   ├── Extract addresses (libc, stack, heap) dari output
+   └── Use leaked addresses untuk bypass ASLR/PIE
+   DETECTION: Format string input detection, unusual format specifiers
+   BYPASS: Use alternative leak method
+
+2. FORMAT_WRITE
+   WHAT: Format string arbitrary write via %n specifier
+   HOW:
+   ├── Identify format string vulnerability
+   ├── Craft payload dengan %n untuk tulis value ke address
+   ├── Align address di stack dengan positional specifier (%7$n)
+   ├── Control value yang ditulis (width specifier)
+   └── Write ke target address → control overwrite
+   DETECTION: Unusual %n usage, write-what-where primitive detection
+   BYPASS: Use alternative write technique
+
+3. FORMAT_OVERWRITE
+   WHAT: GOT overwrite via format string vulnerability
+   HOW:
+   ├── Leak target address via format string read
+   ├── Calculate offset ke GOT entry
+   ├── Use %n untuk tulis ke GOT entry
+   ├── Overwrite GOT function ke attacker-controlled address
+   └── Trigger PLT call → redirected execution
+   DETECTION: GOT integrity monitoring, format string on writable memory
+   BYPASS: Use alternative GOT overwrite technique
+
+4. FORMAT_PAYLOAD
+   WHAT: Format string payload generator untuk automation
+   HOW:
+   ├── Analyze target binary (format string vulnerability type)
+   ├── Generate leaker payload (%x, %p stack read)
+   ├── Generate writer payload (%n aligned write)
+   ├── Handle ASLR/PIE leak chain
+   └── Combine leak + write dalam single payload
+   DETECTION: Payload pattern matching, format string analysis
+   BYPASS: Use manual format string technique
 
 ROP_SHELLCODE (6):
-├── rop_chain          — ROP chain construction
-├── rop_gadget         — Gadget finder (ROPgadget, ropper)
-├── ret2csu            — __libc_csu_init abuse
-├── ret2dl_resolve     — ret2dl_resolve dynamic linker abuse
-├── shellcode_inject   — Shellcode injection (mmap, execve)
-└── shellcode_encode   — Encoder (alpha, unicode, xor)
+
+1. ROP_CHAIN
+   WHAT: Return-Oriented Programming chain construction
+   HOW:
+   ├── Scan binary/libs untuk useful gadgets (pop rdi; ret)
+   ├── Chain gadgets untuk membangun功能desired function
+   ├── Handle ASLR dengan info leak → resolve addresses
+   ├── Align stack untuk ABI compliance
+   └── Execute ROP chain → system("/bin/sh") atau execve
+   DETECTION: ROP chain execution, return address anomaly
+   BYPASS: Use alternative ROP chain
+
+2. ROP_GADGET
+   WHAT: Gadget finder menggunakan ROPgadget/ropper
+   HOW:
+   ├── Scan binary untuk instructions diakhiri dengan ret
+   ├── Filter gadgets berdasarkan kebutuhan (pop, mov, xor)
+   ├── Score gadgets berdasarkan usefulness
+   ├── Export gadget addresses ke ROP chain builder
+   └── Handle ASLR dengan random base resolution
+   DETECTION: Unusual instruction sequences, gadget scanning detection
+   BYPASS: Use alternative gadget source
+
+3. RET2CSU
+   WHAT: __libc_csu_init abuse untuk universal gadget
+   HOW:
+   ├── Locate __libc_csu_init dalam libc
+   ├── Use pop rbx; pop rbp; pop r12; pop r13; pop r14; pop r15; ret
+   ├── Call function dengan controlled arguments via rdi/rsi
+   ├── Chain multiple csu gadgets untuk 3-argument calls
+   └── Execute arbitrary function dengan 3 controlled args
+   DETECTION: __libc_csu_init usage monitoring
+   BYPASS: Use alternative universal gadget
+
+4. RET2DL_RESOLVE
+   WHAT: Dynamic linker abuse untuk resolve arbitrary function
+   HOW:
+   ├── Forge Elf_Sym dan Elf_Rela structs di writable memory
+   ├── Control sym index → point ke attacker-controlled name
+   ├── Trigger _dl_runtime_resolve → resolves fake symbol
+   ├── Dynamic linker calls attacker-controlled function
+   └── Execute arbitrary code via resolved function
+   DETECTION: Unusual dynamic linker resolution, fake symbol detection
+   BYPASS: Use alternative dl_resolve technique
+
+5. SHELLCODE_INJECT
+   WHAT: Shellcode injection via mmap atau execve
+   HOW:
+   ├── Allocate RWX memory (mmap atau VirtualAlloc)
+   ├── Write shellcode ke allocated memory
+   ├── Change memory protection ke RX
+   ├── Create thread atau jump ke shellcode
+   └── Shellcode executes → get shell atau execute payload
+   DETECTION: RWX memory allocation, shellcode pattern detection
+   BYPASS: Use alternative injection method
+
+6. SHELLCODE_ENCODE
+   WHAT: Encoder untuk bypass bad character filters
+   HOW:
+   ├── Identify bad characters di target input
+   ├── Encode shellcode (alpha, unicode, xor) untuk menghindari bad chars
+   ├── Generate decoder stub sesuai encoding
+   ├── Prepend decoder ke encoded shellcode
+   └── Decoder executes → decode shellcode → execute
+   DETECTION: Shellcode encoding pattern, decoder stub detection
+   BYPASS: Use alternative encoding technique
 
 FALLBACK:
 Stack Overflow → Heap Overflow → UAF → Double Free →
 Format String → ROP Chain → Shellcode → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+ASLR terlalu kuat untuk brute     │ 1. Coba info leak terlebih dahulu
+                                  │ 2. Gunakan partial overwrite
+                                  │ 3. Fallback ke blind overflow
+Canary detect payload             │ 1. Bypass via info leak canary
+                                  │ 2. Gunakan alternative write primitive
+                                  │ 3. Fallback ke heap exploitation
+NX/DEP menghalangi shellcode     │ 1. Gunakan ROP chain
+                                  │ 2. Gunakan ret2libc/ret2plt
+                                  │ 3. Gunakan mmap executable region
+Heap allocation predictabel       │ 1. Gunakan heap feng shui
+                                  │ 2. Brute-force allocation order
+                                  │ 3. Fallback ke different heap technique
+Target binary stripped/tinied     │ 1. Gunakan ret2csu universal gadget
+                                  │ 2. Gunakan ret2dl_resolve
+                                  │ 3. Gunakan blind ROP technique
 ```
 
 ---
@@ -7255,42 +10677,303 @@ Format String → ROP Chain → Shellcode → ALERT
 
 ```
 JAVA_DESERTOP (6):
-├── ysoserial          — ysoserial gadget chain (CommonsCollections, Spring, etc.)
-├── jndi_inject        — JNDI injection (Log4Shell style)
-├── classloader        — ClassLoader manipulation
-├── dns_exfil          — DNS exfiltration via deserialization
-├── ldap_inject        — LDAP injection via JNDI
-└── rmi_exploit        — RMI remote class loading
+
+1. YSOSERIAL
+   WHAT: ysoserial gadget chain exploit (CommonsCollections, Spring, etc.)
+   HOW:
+   ├── Pilih gadget chain sesuai target library (CommonsCollections, Spring, etc.)
+   ├── Generate serialized object dengan ysoserial tool
+   ├── Inject serialized object ke target input (HTTP param, JMS, RMI)
+   ├── Target deserialize object → gadget chain executes
+   └── Chain execute arbitrary command via Runtime.exec()
+   DETECTION: Deserialization filter, gadget chain signature detection
+   BYPASS: Use alternative gadget chain
+
+2. JNDI_INJECT
+   WHAT: JNDI injection (Log4Shell style) untuk remote class loading
+   HOW:
+   ├── Deploy malicious LDAP/RMI server dengan class payload
+   ├── Inject JNDI lookup string ke vulnerable input
+   ├── Target resolves JNDI → connects ke attacker server
+   ├── Malicious class loaded dan instantiated
+   └── Static initializer executes arbitrary code
+   DETECTION: JNDI lookup detection, outbound LDAP/RMI connection monitoring
+   BYPASS: Use alternative JNDI vector
+
+3. CLASSLOADER
+   WHAT: ClassLoader manipulation untuk load arbitrary classes
+   HOW:
+   ├── Identify ClassLoader vulnerability (URLClassloader, etc.)
+   ├── Craft serialized object yang manipulate ClassLoader state
+   ├── Inject ke deserialization endpoint
+   ├── ClassLoader resolves ke attacker-controlled classpath
+   └── Malicious class loaded dan executed
+   DETECTION: ClassLoader state change monitoring, unexpected class loading
+   BYPASS: Use alternative ClassLoader technique
+
+4. DNS_EXFIL
+   WHAT: DNS exfiltration via deserialization endpoint
+   HOW:
+   ├── Generate serialized object yang trigger DNS query
+   ├── Inject ke deserialization endpoint
+   ├── Target deserialize → trigger DNS resolution
+   ├── DNS query contains exfiltrated data (subdomain encoding)
+   └── Capture DNS query → extract data
+   DETECTION: Unusual DNS query patterns, deserialization endpoint monitoring
+   BYPASS: Use alternative exfiltration vector
+
+5. LDAP_INJECT
+   WHAT: LDAP injection via JNDI untuk RCE
+   HOW:
+   ├── Deploy malicious LDAP server dengan serialized payload
+   ├── Inject JNDI LDAP lookup ke vulnerable application
+   ├── Target resolve JNDI LDAP → fetch malicious entry
+   ├── Deserialized object trigger code execution
+   └── Arbitrary command execution via gadget chain
+   DETECTION: LDAP query monitoring, deserialization endpoint protection
+   BYPASS: Use alternative LDAP vector
+
+6. RMI_EXPLOIT
+   WHAT: RMI remote class loading exploit
+   HOW:
+   ├── Deploy malicious RMI registry
+   ├── Register remote object dengan malicious class
+   ├── Target connects ke attacker RMI registry
+   ├── Remote class loaded via RMI class loading
+   └── Class initializer executes arbitrary code
+   DETECTION: RMI connection monitoring, remote class loading detection
+   BYPASS: Use alternative RMI technique
 
 PYTHON_DESER (5):
-├── pickle_rce         — Pickle deserialization RCE (cPickle/reduce)
-├── yaml_load          — PyYAML unsafe_load RCE
-├── marshal_load       — Marshal deserialization RCE
-├── shelve_exploit     — Shelve deserialization abuse
-└── jsonpickle         — jsonpickle remote code execution
+
+1. PICKLE_RCE
+   WHAT: Pickle deserialization RCE via __reduce__ method
+   HOW:
+   ├── Craft malicious pickle payload dengan __reduce__
+   ├── __reduce__ returns (os.system, ("command",))
+   ├── Send pickle payload ke vulnerable endpoint
+   ├── Target unpickle → __reduce__ executed
+   └── Arbitrary command execution via os.system
+   DETECTION: Pickle deserialization monitoring, __reduce__ detection
+   BYPASS: Use alternative pickle gadget
+
+2. YAML_LOAD
+   WHAT: PyYAML unsafe_load RCE via !!python/object
+   HOW:
+   ├── Craft YAML payload dengan !!python/object/apply:os.system
+   ├── Inject payload ke YAML parsing endpoint
+   ├── Target yaml.unsafe_load → python object instantiated
+   ├── Object constructor executes arbitrary code
+   └── Command execution via yaml deserialization
+   DETECTION: Unsafe YAML loading, !!python tag detection
+   BYPASS: Use alternative YAML payload
+
+3. MARSHAL_LOAD
+   WHAT: Marshal deserialization RCE untuk Python objects
+   HOW:
+   ├── Craft malicious marshal payload dengan code object
+   ├── Code object contains malicious bytecode
+   ├── Send marshal payload ke vulnerable endpoint
+   ├── Target marshal.loads → code object deserialized
+   └── Malicious bytecode executes arbitrary code
+   DETECTION: Marshal loading monitoring, code object detection
+   BYPASS: Use alternative marshal technique
+
+4. SHELF_EXPLOIT
+   WHAT: Shelve deserialization abuse untuk arbitrary code execution
+   HOW:
+   ├── Identify shelve serialization endpoint
+   ├── Craft malicious shelve database entry
+   ├── Inject payload ke shelve storage
+   ├── Target shelve.load → deserialized object executes
+   └── Arbitrary code execution via shelve deserialization
+   DETECTION: Shelve deserialization monitoring
+   BYPASS: Use alternative shelve technique
+
+5. JSONPICKLE
+   WHAT: jsonpickle remote code execution via object deserialization
+   HOW:
+   ├── Craft jsonpickle payload dengan malicious class reference
+   ├── Inject payload ke jsonpickle deserialization endpoint
+   ├── Target jsonpickle.loads → object instantiated
+   ├── Malicious class constructor or __init__ executes
+   └── Arbitrary code execution via jsonpickle
+   DETECTION: jsonpickle usage monitoring, class instantiation detection
+   BYPASS: Use alternative jsonpickle vector
 
 PHP_DESER (5):
-├── unserialize_rce    — PHP unserialize() exploit
-├── phar_injection     — Phar deserialization (phar://)
-├── magic_method       — __wakeup/__destruct abuse
-├── pop_chain          — POP (Property Oriented Programming) chain
-└── laravel_rce        — Laravel deserialization RCE
+
+1. UNSERIALIZE_RCE
+   WHAT: PHP unserialize() exploit untuk RCE
+   HOW:
+   ├── Identify unserialize() dengan user-controlled input
+   ├── Craft serialized payload dengan malicious object
+   ├── Object utilizes magic methods (__wakeup, __destruct)
+   ├── Trigger deserialize → magic method executes
+   └── Arbitrary code execution via magic method chain
+   DETECTION: Unserialize function monitoring, magic method detection
+   BYPASS: Use alternative unserialize gadget
+
+2. PHAR_INJECTION
+   WHAT: Phar deserialization exploit via phar:// protocol
+   HOW:
+   ├── Upload malicious phar archive ke server
+   ├── Trigger file operation dengan phar:// stream wrapper
+   ├── Target triggers phar metadata deserialization
+   ├── Deserialized object execute magic methods
+   └── RCE via phar deserialization chain
+   DETECTION: Phar stream wrapper usage, metadata deserialization detection
+   BYPASS: Use alternative phar technique
+
+3. MAGIC_METHOD
+   WHAT: __wakeup/__destruct abuse dalam PHP deserialization
+   HOW:
+   ├── Identify classes dengan dangerous magic methods
+   ├── Chain magic methods untuk code execution
+   ├── Craft serialized object yang trigger method chain
+   ├── __wakeup() → __destruct() → system()
+   └── RCE via magic method execution chain
+   DETECTION: Magic method execution monitoring, method chain detection
+   BYPASS: Use alternative magic method vector
+
+4. POP_CHAIN
+   WHAT: POP (Property Oriented Programming) chain exploit
+   HOW:
+   ├── Identify POP gadget classes dalam application
+   ├── Chain gadgets menggunakan property access
+   ├── Trigger deserialization → property chain executes
+   ├── Property getters/setters manipulasi object state
+   └── RCE via POP gadget chain execution
+   DETECTION: POP chain signature detection, property access monitoring
+   BYPASS: Use alternative POP chain
+
+5. LARAVEL_RCE
+   WHAT: Laravel deserialization RCE exploit
+   HOW:
+   ├── Identify Laravel deserialization endpoint
+   ├── Craft Laravel-specific gadget chain (Illuminate, Monolog)
+   ├── Inject serialized payload ke vulnerable endpoint
+   ├── Target deserializes → gadget chain executes
+   └── RCE via Laravel framework deserialization
+   DETECTION: Laravel deserialization monitoring, gadget chain detection
+   BYPASS: Use alternative Laravel gadget
 
 DOTNET_DESER (5):
-├── binaryformatter    — BinaryFormatter deserialization
-├── javascriptser      — JavaScriptSerializer exploit
-├── json_net           — Newtonsoft Json.NET Exploit
-├── typeconfusion      — Type confusion deserialization
-└── gadgets_net        — .NET gadget chains (ysoserial.net)
+
+1. BINARYFORMATTER
+   WHAT: BinaryFormatter deserialization exploit untuk RCE
+   HOW:
+   ├── Craft malicious BinaryFormatter payload dengan TypeConfuseDelegate gadget
+   ├── Inject payload ke deserialization endpoint
+   ├── Target BinaryFormatter.Deserialize() → gadget executes
+   ├── TypeConverter chain triggers code execution
+   └── Arbitrary code execution via .NET deserialization
+   DETECTION: BinaryFormatter usage monitoring, gadget signature detection
+   BYPASS: Use alternative .NET gadget
+
+2. JAVASCRIPTSER
+   WHAT: JavaScriptSerializer exploit untuk RCE
+   HOW:
+   ├── Craft payload dengan JavaScriptConverter exploit
+   ├── Inject payload ke JavaScriptSerializer.Deserialize()
+   ├── Target deserialize → converter instantiates object
+   ├── Malicious constructor executes arbitrary code
+   └── RCE via JavaScriptSerializer chain
+   DETECTION: JavaScriptSerializer deserialization monitoring
+   BYPASS: Use alternative JavaScriptSerializer vector
+
+3. JSON_NET
+   WHAT: Newtonsoft Json.NET Exploit untuk RCE
+   HOW:
+   ├── Craft payload dengan TypeNameHandling.All enabled
+   ├── Inject payload ke Json.NET deserialization
+   ├── Target deserialize → type resolution executes
+   ├── Arbitrary type instantiated with controlled constructor
+   └── RCE via Json.NET type confusion
+   DETECTION: Json.NET TypeNameHandling monitoring
+   BYPASS: Use alternative Json.NET vector
+
+4. TYPECONFUSION
+   WHAT: Type confusion deserialization exploit
+   HOW:
+   ├── Identify type confusion vulnerability in deserializer
+   ├── Craft payload yang exploit type confusion
+   ├── Inject payload ke deserialization endpoint
+   ├── Target deserializes → incorrect type cast
+   └── Memory corruption atau arbitrary code execution
+   DETECTION: Type confusion monitoring, type safety validation
+   BYPASS: Use alternative type confusion technique
+
+5. GADGETS_NET
+   WHAT: .NET gadget chains (ysoserial.net) untuk deserialization
+   HOW:
+   ├── Pilih .NET gadget chain dari ysoserial.net
+   ├── Generate serialized payload dengan selected chain
+   ├── Inject payload ke vulnerable endpoint
+   ├── Target deserializes → gadget chain executes
+   └── RCE via .NET gadget chain execution
+   DETECTION: .NET gadget chain signature detection
+   BYPASS: Use alternative .NET gadget chain
 
 RUBY_DESER (3):
-├── marshal_load       — Marshal.load RCE
-├── yaml_load          — YAML.load RCE
-└── gem_rce            — Gem installation backdoor
+
+1. MARSHAL_LOAD
+   WHAT: Marshal.load RCE exploit
+   HOW:
+   ├── Craft malicious Ruby Marshal payload dengan _load method
+   ├── Inject payload ke Marshal.load() endpoint
+   ├── Target deserialize → _load method executed
+   ├── Arbitrary object instantiation dengan malicious attributes
+   └── RCE via Marshal deserialization
+   DETECTION: Marshal.load usage monitoring, _load method detection
+   BYPASS: Use alternative Marshal technique
+
+2. YAML_LOAD
+   WHAT: YAML.load RCE exploit
+   HOW:
+   ├── Craft YAML payload dengan !!ruby/object tag
+   ├── Inject payload ke YAML.load() endpoint
+   ├── Target deserialize → Ruby object instantiated
+   ├── Object constructor or initialize method executes
+   └── RCE via YAML deserialization
+   DETECTION: YAML.load monitoring, !!ruby tag detection
+   BYPASS: Use alternative YAML technique
+
+3. GEM_RCE
+   WHAT: Gem installation backdoor exploit
+   HOW:
+   ├── Craft malicious gem dengan installer exploit
+   ├── Backdoor gemspec dengan pre/post install hooks
+   ├── Target installs gem → installer executes
+   ├── Malicious hooks execute arbitrary code
+   └── Persistent backdoor via gem installation
+   DETECTION: Gem installation monitoring, installer hook detection
+   BYPASS: Use alternative gem vector
 
 FALLBACK:
 Java Gadget → JNDI → Pickle → YAML → PHP Unserialize →
 Phar → .NET BinaryFormatter → Ruby Marshal → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Target uses safe deserialization   │ 1. Try harder-to-detect gadget chains
+                                  │ 2. Use partial deserialization gadgets
+                                  │ 3. Fallback ke alternative vector
+No vulnerable library version     │ 1. Enumerate all available libraries
+                                  │ 2. Try library-specific chains
+                                  │ 3. Fallback ke different attack vector
+Input validation blocks payloads  │ 1. Bypass dengan encoding/obfuscation
+                                  │ 2. Use alternative input vector
+                                  │ 3. Fallback ke manual exploitation
+Deserialization exception logged  │ 1. Use stealthier payload
+                                  │ 2. Retry dengan exponential backoff
+                                  │ 3. Fallback ke out-of-band technique
+Multiple deserialization layers   │ 1. Chain multiple gadgets
+                                  │ 2. Use nested deserialization
+                                  │ 3. Fallback ke direct injection
 ```
 
 ---
@@ -7299,30 +10982,211 @@ Phar → .NET BinaryFormatter → Ruby Marshal → ALERT
 
 ```
 TOCTOU (5):
-├── file_race          — File creation/deletion race
-├── symlink_race       — Symlink race condition
-├── temp_file_race     — Temporary file race
-├── lock_bypass        — Lock bypass via race
-└── auth_race          — Authentication bypass via race
+
+1. FILE_RACE
+   WHAT: File creation/deletion race condition exploit
+   HOW:
+   ├── Identify file operations dengan check-then-use pattern
+   ├── Monitor target file status (exists/permission)
+   ├── Trigger file deletion di antara check dan use
+   ├── Victim application beroperasi dengan file yang sudah berubah
+   └── Exploit perbedaan state → privilege escalation atau RCE
+   DETECTION: File operation timing analysis, TOCTOU pattern detection
+   BYPASS: Use alternative file race technique
+
+2. SYMLINK_RACE
+   WHAT: Symlink race condition untuk arbitrary file access
+   HOW:
+   ├── Cari file operations yang menggunakan symlink
+   ├── Buat symlink ke target sensitive file
+   ├── Trigger application membuka symlink
+   ├── Di antara open dan read, swap symlink ke target lain
+   └── Application membaca file berbeda → arbitrary file access
+   DETECTION: Symlink creation monitoring, file descriptor race detection
+   BYPASS: Use alternative symlink vector
+
+3. TEMP_FILE_RACE
+   WHAT: Temporary file race condition exploit
+   HOW:
+   ├── Identify temporary file creation (mktemp, tmpfile)
+   ├── Race untuk create symlink sebelum application
+   ├── Target application membuka temp file
+   ├── Symlink sudah point ke sensitive location
+   └── Read/write ke sensitive file via temp file handle
+   DETECTION: Temp file creation monitoring, symlink detection
+   BYPASS: Use alternative temp file technique
+
+4. LOCK_BYPASS
+   WHAT: Lock bypass via race condition
+   HOW:
+   ├── Identify file locking mechanism (flock, fcntl)
+   ├── Trigger lock acquisition race condition
+   ├── Obtain lock sebelum legitimate holder
+   ├── Access resource di bawah false lock
+   └── Bypass lock protection → unauthorized access
+   DETECTION: Lock acquisition anomaly, concurrent lock access
+   BYPASS: Use alternative lock bypass technique
+
+5. AUTH_RACE
+   WHAT: Authentication bypass via race condition
+   HOW:
+   ├── Identify authentication check-then-use pattern
+   ├── Trigger concurrent authentication requests
+   ├── Race untuk bypass check sebelum complete
+   ├── Obtain authenticated state tanpa valid credential
+   └── Access protected resource via race-bypassed auth
+   DETECTION: Concurrent auth attempt detection, timing anomaly
+   BYPASS: Use alternative authentication bypass
 
 CONCURRENT_ABUSE (6):
-├── double_spend       — Double-spend attack (payment)
-├── double_submit      — Double-submit (coupon, referral)
-├── concurrent_request │ — Concurrent API request abuse
-├── token_reuse        — Token reuse during race
-├── idor_race          — IDOR via race condition
-└── quota_bypass       — Quota/rate-limit bypass via race
+
+1. DOUBLE_SPEND
+   WHAT: Double-spend attack (payment) via concurrent requests
+   HOW:
+   ├── Identify payment processing endpoint
+   ├── Submit multiple concurrent payment requests
+   ├── Race condition memungkinkan same balance double-use
+   ├── Each request passes balance check sebelum prev committed
+   └── Same funds spent multiple times → financial loss
+   DETECTION: Concurrent transaction detection, balance integrity check
+   BYPASS: Use alternative payment race technique
+
+2. DOUBLE_SUBMIT
+   WHAT: Double-submit (coupon, referral) abuse
+   HOW:
+   ├── Identify coupon/referral submission endpoint
+   ├── Submit same coupon/referral code concurrently
+   ├── Race condition memungkinkan same code used twice
+   ├── Each request passes validation sebelum prev committed
+   └── Same benefit claimed multiple times → abuse
+   DETECTION: Duplicate submission detection, concurrent usage monitoring
+   BYPASS: Use alternative double-submit technique
+
+3. CONCURRENT_REQUEST
+   WHAT: Concurrent API request abuse untuk parallel exploitation
+   HOW:
+   ├── Identify API endpoints dengan race condition vulnerability
+   ├── Send multiple concurrent requests ke same endpoint
+   ├── Race condition memungkinkan parallel state modification
+   ├── Each request modifies state tanpa proper locking
+   └── Unauthorized parallel operations → data corruption atau escalation
+   DETECTION: API rate limiting, concurrent request pattern detection
+   BYPASS: Use alternative concurrent technique
+
+4. TOKEN_REUSE
+   WHAT: Token reuse during race condition exploit
+   HOW:
+   ├── Identify token validation dengan race window
+   ├── Submit same token concurrently ke multiple endpoints
+   ├── Race condition memungkinkan token digunakan sebelum invalidated
+   ├── Each request passes token check sebelum invalidation committed
+   └── Single token digunakan multiple times → privilege abuse
+   DETECTION: Token reuse detection, concurrent token validation
+   BYPASS: Use alternative token race technique
+
+5. IDOR_RACE
+   WHAT: IDOR via race condition exploit
+   HOW:
+   ├── Identify resource access endpoint dengan IDOR
+   ├── Monitor target resource ID
+   ├── Race untuk mengubah resource ownership/permission
+   ├── Access IDOR-vulnerable endpoint sebelum permission change committed
+   └── Access resource berbeda via race-bypassed authorization
+   DETECTION: IDOR access monitoring, concurrent permission change detection
+   BYPASS: Use alternative IDOR race technique
+
+6. QUOTA_BYPASS
+   WHAT: Quota/rate-limit bypass via race condition
+   HOW:
+   ├── Identify quota/rate-limit enforcement mechanism
+   ├── Submit concurrent requests sebelum counter incremented
+   ├── Race condition memungkinkan request dilayani sebelum limit checked
+   ├── Each request passes quota check sebelum prev counted
+   └── Exceed rate limit → quota bypass achieved
+   DETECTION: Rate limit counter anomaly, concurrent quota check detection
+   BYPASS: Use alternative quota bypass technique
 
 STATE_RACE (5):
-├── state_confusion    — State machine confusion
-├── queue_jump         — Queue jumping
-├── priority_escal     — Priority escalation via race
-├── order_manipulate   — Order manipulation (trading, bidding)
-└── balance_race       — Balance manipulation (deposit/withdraw)
+
+1. STATE_CONFUSION
+   WHAT: State machine confusion via race condition
+   HOW:
+   ├── Identify state machine dengan transient states
+   ├── Trigger concurrent state transitions
+   ├── Race condition memungkinkan invalid state combinations
+   ├── State machine enters inconsistent state
+   └── Exploit inconsistent state → privilege escalation atau bypass
+   DETECTION: State transition anomaly, invalid state detection
+   BYPASS: Use alternative state confusion technique
+
+2. QUEUE_JUMP
+   WHAT: Queue jumping via race condition exploit
+   HOW:
+   ├── Identify queue management system
+   ├── Submit high-priority request saat queue processing
+   ├── Race condition memungkinkan queue position manipulation
+   ├── Request inserted di posisi lebih tinggi
+   └── Bypass normal queue order → priority abuse
+   DETECTION: Queue position monitoring, insert anomaly detection
+   BYPASS: Use alternative queue manipulation technique
+
+3. PRIORITY_ESCAL
+   WHAT: Priority escalation via race condition
+   HOW:
+   ├── Identify priority assignment mechanism
+   ├── Submit priority change request concurrent dengan normal operation
+   ├── Race condition memungkinkan priority di-change sebelum evaluated
+   ├── Higher priority granted tanpa legitimate justification
+   └── Obtain elevated priority → resource access atau scheduling abuse
+   DETECTION: Priority change monitoring, concurrent escalation detection
+   BYPASS: Use alternative priority escalation technique
+
+4. ORDER_MANIPULATE
+   WHAT: Order manipulation (trading, bidding) via race condition
+   HOW:
+   ├── Identify trading/bidding system dengan race window
+   ├── Submit concurrent orders dengan price manipulation
+   ├── Race condition memungkinkan same funds used multiple times
+   ├── Manipulate order execution sequence
+   └── Obtain favorable execution → financial manipulation
+   DETECTION: Concurrent order detection, trade sequence anomaly
+   BYPASS: Use alternative order manipulation technique
+
+5. BALANCE_RACE
+   WHAT: Balance manipulation (deposit/withdraw) via race condition
+   HOW:
+   ├── Identify balance update endpoint
+   ├── Submit concurrent deposit/withdraw requests
+   ├── Race condition memungkinkan double-crediting
+   ├── Each request reads balance sebelum prev committed
+   └── Inflated balance → financial manipulation achieved
+   DETECTION: Balance integrity monitoring, concurrent update detection
+   BYPASS: Use alternative balance race technique
 
 FALLBACK:
 File Race → Symlink Race → Double Spend → Double Submit →
 Concurrent Request → Token Reuse → State Confusion → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Race window terlalu kecil         │ 1. Increase concurrency dengan threads
+                                  │ 2. Gunakan timing manipulation
+                                  │ 3. Fallback ke alternative race method
+File locking prevents race        │ 1. Gunakan symlink race instead
+                                  │ 2. Bypass lock dengan alternative vector
+                                  │ 3. Fallback ke state-based race
+Concurrent request throttled      │ 1. Reduce request frequency
+                                  │ 2. Use distributed request pattern
+                                  │ 3. Fallback ke sequential race technique
+Token invalidation race detected  │ 1. Use shorter race window
+                                  │ 2. Submit requests lebih cepat
+                                  │ 3. Fallback ke alternative token abuse
+Balance check enforces atomicity  │ 1. Coba partial amount exploit
+                                  │ 2. Use alternative financial race
+                                  │ 3. Fallback ke state manipulation
 ```
 
 ---
@@ -7331,32 +11195,230 @@ Concurrent Request → Token Reuse → State Confusion → ALERT
 
 ```
 GRAPHQL_ATTACKS (8):
-├── batching_attack    — Query batching to bypass rate limit
-├── depth_abuse        — Deep nested query DoS
-├── alias_attack       — Alias-based query batching
-├── introspection_leak │ — Introspection query data leak
-├── field_duplication  — Field duplication attack
-├── directive_inject   — Directive injection
-├── union_abuse        — Union type confusion
-└── fragment_spread    — Fragment spread DoS
+
+1. BATCHING_ATTACK
+   WHAT: Query batching to bypass rate limit
+   HOW:
+   ├── Compile multiple queries into single HTTP request
+   ├── Use array syntax: [{query1},{query2},...]
+   ├── Server executes all queries in one batch
+   ├── Rate limit counter only increments once
+   └── Extract data from all query responses
+   DETECTION: Batch query size monitoring and anomaly detection
+   BYPASS: Use aliased single-query approach
+
+2. DEPTH_ABUSE
+   WHAT: Deep nested query DoS
+   HOW:
+   ├── Craft query with deep nested object references
+   ├── Example: { user { friends { friends { friends {...}}}}
+   ├── Server recursively resolves each nesting level
+   ├── CPU and memory exhaustion on resolver layer
+   └── Denial of service achieved
+   DETECTION: Query depth limit enforcement and monitoring
+   BYPASS: Use fragment spread to obscure depth
+
+3. ALIAS_ATTACK
+   WHAT: Alias-based query batching
+   HOW:
+   ├── Use GraphQL aliases to rename identical queries
+   ├── Example: q1: user(id:1), q2: user(id:2), ...
+   ├── All aliases resolve in single request
+   ├── Bypass rate limiting yang berbasis query count
+   └── Execute multiple unauthorized lookups
+   DETECTION: Alias count monitoring per request
+   BYPASS: Use persisted query with multiple aliases
+
+4. INTROSPECTION_LEAK
+   WHAT: Introspection query data leak
+   HOW:
+   ├── Send __schema introspection query
+   ├── Extract complete type system definition
+   ├── Map all types, fields, arguments, and enums
+   ├── Identify hidden or internal-only fields
+   └── Use schema knowledge untuk targeted attacks
+   DETECTION: Introspection query logging and blocking
+   BYPASS: Use field suggestion error messages
+
+5. FIELD_DUPLICATION
+   WHAT: Field duplication attack
+   HOW:
+   ├── Duplicate expensive fields in single query
+   ├── Example: { user { name name name ... } }
+   ├── Each duplicate triggers separate resolver call
+   ├── Backend hits database repeatedly per field
+   └── Performance degradation achieved
+   DETECTION: Duplicate field detection in query parser
+   BYPASS: Use fragment to spread duplicated fields
+
+6. DIRECTIVE_INJECT
+   WHAT: Directive injection
+   HOW:
+   ├── Inject custom or deprecation directives
+   ├── Example: @deprecated(reason: "payload")
+   ├── Exploit directive handling in resolvers
+   ├── Bypass access control checks yang berbasis directive
+   └── Manipulate response via directive behavior
+   DETECTION: Directive whitelist validation
+   BYPASS: Use standard directives dengan modified args
+
+7. UNION_ABUSE
+   WHAT: Union type confusion
+   HOW:
+   ├── Query union type with multiple possible types
+   ├── Force server ke resolve unexpected type
+   ├── Extract type information dari error responses
+   ├── Pivot ke type-specific field access
+   └── Access data dari unintended type branch
+   DETECTION: Union type resolution logging
+   BYPASS: Use fragment on specific union member
+
+8. FRAGMENT_SPREAD
+   WHAT: Fragment spread DoS
+   HOW:
+   ├── Create circular fragment references
+   ├── Example: fragment A on User { ...B } fragment B on User { ...A }
+   ├── Server enters infinite fragment resolution loop
+   ├── CPU exhaustion on query compilation
+   └── Denial of service on GraphQL endpoint
+   DETECTION: Circular fragment detection in parser
+   BYPASS: Use recursive inline fragments
 
 GRAPHQL_EXPLOIT (6):
-├── authz_bypass       — Authorization bypass via introspection
-├── sqli_graphql       — SQL injection via GraphQL arguments
-├── ssrf_graphql       — SSRF via GraphQL resolvers
-├── nosql_graphql      — NoSQL injection via GraphQL
-├── batch_authz_bypass │ — Batch authorization bypass
-└── persisted_query    — Persisted query abuse
+
+1. AUTHZ_BYPASS
+   WHAT: Authorization bypass via introspection
+   HOW:
+   ├── Perform introspection to discover hidden queries
+   ├── Find admin-only fields exposed in schema
+   ├── Execute query langsung tanpa auth context
+   ├── Resolvers miss authorization check on hidden fields
+   └── Access restricted data
+   DETECTION: Introspection-based authorization audit
+   BYPASS: Use query complexity to obscure intent
+
+2. SQLI_GRAPHQL
+   WHAT: SQL injection via GraphQL arguments
+   HOW:
+   ├── Identify string arguments in GraphQL query
+   ├── Inject SQL payload dalam argument value
+   ├── Example: user(name: "admin' OR '1'='1")
+   ├── Resolver passes argument ke database query
+   └── Extract data via UNION or blind injection
+   DETECTION: Parameterized query enforcement
+   BYPASS: Use time-based blind injection
+
+3. SSRF_GRAPHQL
+   WHAT: SSRF via GraphQL resolvers
+   HOW:
+   ├── Find resolvers that fetch external URLs
+   ├── Inject internal network addresses in URL args
+   ├── Example: fetchImage(url: "http://169.254.169.254/latest/meta-data/")
+   ├── Resolver makes request ke internal service
+   └── Extract cloud metadata or internal data
+   DETECTION: Outbound request filtering and logging
+   BYPASS: Use DNS rebinding to bypass URL validation
+
+4. NOSQL_GRAPHQL
+   WHAT: NoSQL injection via GraphQL
+   HOW:
+   ├── Inject MongoDB/NoSQL operators in arguments
+   ├── Example: { $gt: "" } atau { $ne: null }
+   ├── Resolver passes operator ke NoSQL query
+   ├── Bypass authentication or extract all documents
+   └── Escalate via NoSQL-specific operators
+   DETECTION: NoSQL query sanitization monitoring
+   BYPASS: Use operator nesting to bypass filters
+
+5. BATCH_AUTHZ_BYPASS
+   WHAT: Batch authorization bypass
+   HOW:
+   ├── Send batch request dengan mixed authorization levels
+   ├── Include admin and user queries dalam satu batch
+   ├── Server processes batch without per-query auth
+   ├── Unauthorized queries execute alongside authorized
+   └── Extract data dari privilege mismatch
+   DETECTION: Per-query authorization enforcement
+   BYPASS: Use nested mutation dalam batch
+
+6. PERSISTED_QUERY
+   WHAT: Persisted query abuse
+   HOW:
+   ├── Register malicious persisted query via automatic persisted query (APQ)
+   ├── Store query hash pada server
+   ├── Send request using hash reference
+   ├── Bypass WAF rules yang inspect query body
+   └── Execute hidden query tanpa detection
+   DETECTION: Persisted query registry audit
+   BYPASS: Use CDN-cached query hash
 
 GRAPHQL_INFRA (4):
-├── schema_dump        — Full schema extraction
-├── type_enum          — Type enumeration
-├── connection_enum    — Connection/resource enumeration
-└── error_leak         — Error message data leakage
+
+1. SCHEMA_DUMP
+   WHAT: Full schema extraction
+   HOW:
+   ├── Execute __schema { types { name fields {...} } }
+   ├── Map complete type hierarchy
+   ├── Extract all query, mutation, and subscription types
+   ├── Build offline attack surface map
+   └── Identify deprecated and hidden endpoints
+   DETECTION: Schema access logging and rate limiting
+   BYPASS: Use partial introspection via error messages
+
+2. TYPE_ENUM
+   WHAT: Type enumeration
+   HOW:
+   ├── Query __type(name: "Target") for specific types
+   ├── Enumerate types using known naming patterns
+   ├── Extract field names and argument types
+   ├── Map relationships antar types
+   └── Build complete data model
+   DETECTION: Type query frequency monitoring
+   BYPASS: Use fragment to enumerate multiple types
+
+3. CONNECTION_ENUM
+   WHAT: Connection/resource enumeration
+   HOW:
+   ├── Query paginated connections: users(first:100, after:"cursor")
+   ├── Iterate cursors untuk extract all records
+   ├── Identify connection-based access control weaknesses
+   ├── Extract ID patterns untuk IDOR attacks
+   └── Map entire resource tree
+   DETECTION: Pagination query anomaly detection
+   BYPASS: Use parallel cursor queries
+
+4. ERROR_LEAK
+   WHAT: Error message data leakage
+   HOW:
+   ├── Send malformed GraphQL queries
+   ├── Analyze verbose error responses
+   ├── Extract stack traces and resolver names
+   ├── Identify backend database type and version
+   └── Use error details untuk refine attack
+   DETECTION: Error message sanitization
+   BYPASS: Use mutation errors untuk data extraction
 
 FALLBACK:
 Batching → Depth DoS → Alias → Introspection →
 Field Duplication → Directive Inject → Union Abuse → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Introspection disabled globally    │ 1. Use field suggestion errors
+                                  │ 2. Fallback ke error-based enumeration
+Batch rate limit per-query        │ 1. Split batch into sequential requests
+                                  │ 2. Use alias batching instead
+Query depth hard-limited at 3     │ 1. Use fragment spread dalam batas
+                                  │ 2. Pivot ke introspection-based attack
+Persisted query cache purged      │ 1. Re-register via APQ
+                                  │ 2. Fallback ke standard query
+Resolver returns generic error    │ 1. Use timing-based inference
+                                  │ 2. Fallback ke schema enumeration
+CORS blocks introspection origin  │ 1. Use server-side request
+                                  │ 2. Fallback ke error message extraction
 ```
 
 ---
@@ -7365,37 +11427,265 @@ Field Duplication → Directive Inject → Union Abuse → ALERT
 
 ```
 PADDING_ORACLE (4):
-├── cbc_padding        — CBC padding oracle
-├── cbc_mac_forgery    — CBC-MAC forgery
-├── chosen_ciphertext  — Chosen ciphertext attack
-└── pt_oracle          — Plaintext recovery via oracle
+
+1. CBC_PADDING
+   WHAT: CBC padding oracle
+   HOW:
+   ├── Intercept ciphertext encrypted with CBC mode
+   ├── Modify ciphertext blocks secara terurut
+   ├── Send modified ciphertext ke server
+   ├── Analyze error response (padding valid vs invalid)
+   └── Reconstruct plaintext byte-by-byte
+   DETECTION: Padding error response uniformity
+   BYPASS: Use timing-based oracle differentiation
+
+2. CBC_MAC_FORGERY
+   WHAT: CBC-MAC forgery
+   HOW:
+   ├── Obtain valid CBC-MAC tag untuk known message
+   ├── Compute new message as XOR of messages
+   ├── Calculate forged tag using linear property CBC-MAC
+   ├── Append forged tag ke crafted message
+   └── Server accepts forged message
+   DETECTION: CBC-MAC domain separation enforcement
+   BYPASS: Use length extension pada variable-length MAC
+
+3. CHOSEN_CIPHERTEXT
+   WHAT: Chosen ciphertext attack
+   HOW:
+   ├── Submit crafted ciphertexts ke decryption oracle
+   ├── Analyze decryption results atau error behavior
+   ├── Use statistical analysis ke recover key material
+   ├── Repeat adaptive queries untuk refine recovery
+   └── Recover secret key atau plaintext
+   DETECTION: Decryption oracle access rate limiting
+   BYPASS: Use offline variant dengan leaked data
+
+4. PT_ORACLE
+   WHAT: Plaintext recovery via oracle
+   HOW:
+   ├── Identify encryption oracle yang leaks plaintext info
+   ├── Submit controlled plaintexts
+   ├── Observe ciphertext changes
+   ├── Correlate changes dengan known plaintext patterns
+   └── Recover unknown plaintext via differential analysis
+   DETECTION: Oracle response pattern anomaly detection
+   BYPASS: Use multiple oracle instances
 
 HASH_ATTACKS (5):
-├── length_extension   — Hash length extension (MD5, SHA-1, SHA-256)
-├── collision          — Hash collision (SHA-1 SHAttered)
-├── preimage           — Preimage attack (weak hash)
-├── rainbow_table      — Rainbow table attack
-└── hashcat_online     — Online hash cracking (hashcat)
+
+1. LENGTH_EXTENSION
+   WHAT: Hash length extension (MD5, SHA-1, SHA-256)
+   HOW:
+   ├── Obtain hash(message) dan known message length
+   ├── Append arbitrary data tanpa knowing secret
+   ├── Compute hash(message + padding + appended_data)
+   ├── Use Merkle-Damgard construction property
+   └── Forge valid MAC untuk extended message
+   DETECTION: Use HMAC instead of raw hash
+   BYPASS: Use truncated hash variants
+
+2. COLLISION
+   WHAT: Hash collision (SHA-1 SHAttered)
+   HOW:
+   ├── Use precomputed collision pairs (SHAttered)
+   ├── Craft two different files dengan same SHA-1 hash
+   ├── Submit benign file untuk approval
+   ├── Replace dengan malicious file yang collide
+   └── Verification passes karena hash identical
+   DETECTION: Collision-resistant hash migration
+   BYPASS: Use chosen-prefix collision attack
+
+3. PREIMAGE
+   WHAT: Preimage attack (weak hash)
+   HOW:
+   ├── Identify weak hash function (MD5, SHA-1)
+   ├── Compute preimage untuk target hash value
+   ├── Create input yang produces matching hash
+   ├── Submit forged input
+   └── Bypass hash-based authentication
+   DETECTION: Strong hash algorithm enforcement
+   BYPASS: Use rainbow table precomputation
+
+4. RAINBOW_TABLE
+   WHAT: Rainbow table attack
+   HOW:
+   ├── Generate precomputed hash chains untuk password space
+   ├── Obtain password hashes dari database leak
+   ├── Look up hashes dalam rainbow table
+   ├── Recover plaintext passwords
+   └── Use recovered credentials untuk access
+   DETECTION: Salt enforcement dan hash monitoring
+   BYPASS: Use hybrid attack (rainbow + rule-based)
+
+5. HASHCAT_ONLINE
+   WHAT: Online hash cracking (hashcat)
+   HOW:
+   ├── Obtain target hash values
+   ├── Configure hashcat dengan rule files dan wordlists
+   ├── Run GPU-accelerated brute force atau dictionary attack
+   ├── Test candidates against target hashes
+   └── Recover plaintext passwords
+   DETECTION: Offline hash audit and monitoring
+   BYPASS: Use distributed cracking cluster
 
 CRYPTO_ABUSE (7):
-├── weak_random        — Weak PRNG exploitation (Math.random())
-├── bias_random        — Biased random number exploitation
-├── timing_attack      — Timing side-channel on crypto
-├── bleichenbacher     — Bleichenbacher RSA padding oracle
-├── chosen_plaintext   — Chosen plaintext attack
-├── downgrade_crypto   — Protocol downgrade (SSL 3.0, TLS 1.0)
-└── key_reuse          — Key/nonce reuse (AES-GCM, ChaCha20)
+
+1. WEAK_RANDOM
+   WHAT: Weak PRNG exploitation (Math.random())
+   HOW:
+   ├── Identify PRNG usage dalam application
+   ├── Collect output samples dari PRNG
+   ├── Analyze output distribution untuk predictability
+   ├── Predict next random value
+   └── Use prediction ke forge tokens atau secrets
+   DETECTION: Cryptographic PRNG enforcement
+   BYPASS: Use statistical bias exploitation
+
+2. BIAS_RANDOM
+   WHAT: Biased random number exploitation
+   HOW:
+   ├── Collect large sample dari random output
+   ├── Perform statistical tests untuk detect bias
+   ├── Quantify bias per bit atau per range
+   ├── Use bias ke reduce entropy calculation
+   └── Predict values dengan higher accuracy
+   DETECTION: Randomness quality audit (NIST SP 800-22)
+   BYPASS: Use multiple bias sources
+
+3. TIMING_ATTACK
+   WHAT: Timing side-channel on crypto
+   HOW:
+   ├── Send repeated requests ke crypto operation
+   ├── Measure response time dengan high precision
+   ├── Correlate timing variations dengan secret bits
+   ├── Use statistical analysis untuk extract key
+   └── Recover secret key via accumulated timing data
+   DETECTION: Constant-time implementation verification
+   BYPASS: Use cache-based side channel
+
+4. BLEICHENBACHER
+   WHAT: Bleichenbacher RSA padding oracle
+   HOW:
+   ├── Intercept RSA PKCS#1 v1.5 encrypted ciphertext
+   ├── Send modified ciphertext ke server
+   ├── Analyze error responses (padding valid vs invalid)
+   ├── Use adaptive queries ke narrow plaintext range
+   └── Recover plaintext tanpa private key
+   DETECTION: PKCS#1 v1.5 error response uniformity
+   BYPASS: Use hybrid RSA-KEM instead
+
+5. CHOSEN_PLAINTEXT
+   WHAT: Chosen plaintext attack
+   HOW:
+   ├── Submit controlled plaintexts ke encryption oracle
+   ├── Obtain corresponding ciphertexts
+   ├── Analyze relationship antara plaintext dan ciphertext
+   ├── Deduce key schedule atau round keys
+   └── Decrypt other ciphertexts
+   DETECTION: Encryption oracle access control
+   BYPASS: Use related-plaintext variant
+
+6. DOWNGRADE_CRYPTO
+   WHAT: Protocol downgrade (SSL 3.0, TLS 1.0)
+   HOW:
+   ├── Intercept TLS handshake
+   ├── Manipulate ClientHello untuk remove modern ciphers
+   ├── Force server ke negotiate weaker protocol
+   ├── Exploit known vulnerabilities (POODLE, BEAST)
+   └── Decrypt traffic
+   DETECTION: Protocol version enforcement
+   BYPASS: Use graceful degradation exploitation
+
+7. KEY_REUSE
+   WHAT: Key/nonce reuse (AES-GCM, ChaCha20)
+   HOW:
+   ├── Identify nonce reuse dalam AES-GCM traffic
+   ├── Collect two ciphertexts encrypted dengan same key+nonce
+   ├── XOR ciphertexts untuk obtain plaintext XOR
+   ├── Use known plaintext bytes untuk recover unknown
+   └── Extract authentication key dari GMAC forgery
+   DETECTION: Nonce uniqueness verification
+   BYPASS: Use key derivation from leaked nonce
 
 CERT_ABUSE (5):
-├── weak_cert          — Weak certificate (MD5 signature)
-├── self_signed_trust  — Self-signed certificate trust
-├── ca_malicious       — Malicious CA certificate
-├── cert_pinning_bypass│ — Certificate pinning bypass
-└── key_compromise     — Private key compromise
+
+1. WEAK_CERT
+   WHAT: Weak certificate (MD5 signature)
+   HOW:
+   ├── Identify certificates signed with MD5
+   ├── Use collision attack ke create rogue CA cert
+   ├── Sign malicious certificate dengan rogue CA
+   ├── Browser trusts malicious cert karena chain valid
+   └── Intercept HTTPS traffic
+   DETECTION: Certificate signature algorithm audit
+   BYPASS: Use SHA-1 collision attack
+
+2. SELF_SIGNED_TRUST
+   WHAT: Self-signed certificate trust
+   HOW:
+   ├── Generate self-signed certificate
+   ├── Inject CA ke system trust store
+   ├── Configure application ke accept custom CA
+   ├── Intercept and decrypt TLS traffic
+   └── Modify traffic in transit
+   DETECTION: Trust store integrity monitoring
+   BYPASS: Use certificate transparency bypass
+
+3. CA_MALICIOUS
+   WHAT: Malicious CA certificate
+   HOW:
+   ├── Compromise trusted CA infrastructure
+   ├── Issue fraudulent certificate untuk target domain
+   ├── Certificate appears valid dalam chain
+   ├── Sign malware dengan compromised CA
+   └── User system trusts signed malware
+   DETECTION: Certificate Transparency log monitoring
+   BYPASS: Use private CA compromise
+
+4. CERT_PINNING_BYPASS
+   WHAT: Certificate pinning bypass
+   HOW:
+   ├── Analyze application certificate pinning logic
+   ├── Identify pin validation implementation
+   ├── Hook pinning function (Frida/Xposed)
+   ├── Replace pin check dengan always-true
+   └── Install attacker-controlled certificate
+   DETECTION: Pinning bypass detection (runtime integrity)
+   BYPASS: Use network-level certificate substitution
+
+5. KEY_COMPROMISE
+   WHAT: Private key compromise
+   HOW:
+   ├── Extract private key dari server atau backup
+   ├── Use compromised key untuk decrypt traffic
+   ├── Sign arbitrary data dengan stolen key
+   ├── Impersonate legitimate server
+   └── Perform man-in-the-middle attack
+   DETECTION: Key usage anomaly detection
+   BYPASS: Use key from adjacent service compromise
 
 FALLBACK:
 Padding Oracle → Length Extension → Collision →
 Rainbow Table → Timing Attack → Bleichenbacher → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Server uses AEAD (AES-GCM)        │ 1. No padding oracle possible
+                                  │ 2. Pivot ke nonce reuse atau timing attack
+Hash uses salt + strong KDF        │ 1. Rainbow table ineffective
+                                  │ 2. Fallback ke online dictionary attack
+TLS 1.3 enforced (no downgrade)   │ 1. No protocol downgrade possible
+                                  │ 2. Use application-layer crypto weakness
+Certificate pinning with backup   │ 1. Primary pin bypassed but backup holds
+pin                               │ 2. Use runtime hook ke disable both pins
+PBKDF2 with high iteration count  │ 1. Cracking speed significantly reduced
+                                  │ 2. Use GPU cluster atau distributed attack
+ECDSA nonce biased                │ 1. Lattice attack ke recover private key
+                                  │ 2. Use multiple signatures untuk analysis
 ```
 
 ---
@@ -7404,30 +11694,208 @@ Rainbow Table → Timing Attack → Bleichenbacher → ALERT
 
 ```
 RESET_BYPASS (7):
-├── token_predict      — Reset token prediction
-├── token_fixation     — Reset token fixation
-├── host_header_inject │ — Host header injection (password reset)
-├── email_injection    — Email header injection (reset link)
-├── response_manipulate│ — Response manipulation
-├── bruteforce_token   — Token brute-force
-└── token_no_expire    — Token without expiration
+
+1. TOKEN_PREDICT
+   WHAT: Reset token prediction
+   HOW:
+   ├── Request password reset untuk target account
+   ├── Analyze reset token format dan generation logic
+   ├── Identify predictable components (timestamp, counter)
+   ├── Predict tokens untuk other accounts
+   └── Use predicted token ke reset passwords
+   DETECTION: Cryptographically random token enforcement
+   BYPASS: Use timing-based token prediction
+
+2. TOKEN_FIXATION
+   WHAT: Reset token fixation
+   HOW:
+   ├── Initiate password reset flow
+   ├── Fixate token ke attacker-controlled value
+   ├── Send victim link dengan fixed token
+   ├── Victim completes reset using attacker token
+   └── Attacker uses same token ke reset password
+   DETECTION: Token regeneration on each step
+   BYPASS: Use pre-authentication token fixation
+
+3. HOST_HEADER_INJECT
+   WHAT: Host header injection (password reset)
+   HOW:
+   ├── Inject attacker-controlled Host header
+   ├── Example: Host: evil.com
+   ├── Reset link generated dengan injected host
+   ├── Victim receives link pointing ke attacker domain
+   └── Captures reset token when victim clicks
+   DETECTION: Host header validation and whitelisting
+   BYPASS: Use X-Forwarded-Host injection
+
+4. EMAIL_INJECTION
+   WHAT: Email header injection (reset link)
+   HOW:
+   ├── Inject newline characters dalam email field
+   ├── Add additional recipient headers
+   ├── CC/BCC attacker-controlled address
+   ├── Reset email sent ke both victim and attacker
+   └── Attacker receives reset link alongside victim
+   DETECTION: Email field sanitization and validation
+   BYPASS: Use email encoding bypass
+
+5. RESPONSE_MANIPULATE
+   WHAT: Response manipulation
+   HOW:
+   ├── Intercept password reset response
+   ├── Modify response body atau status code
+   ├── Change success response ke reveal token
+   ├── Or modify error response ke bypass validation
+   └── Complete reset tanpa valid credentials
+   DETECTION: Server-side response integrity
+   BYPASS: Use client-side state manipulation
+
+6. BRUTEFORCE_TOKEN
+   WHAT: Token brute-force
+   HOW:
+   ├── Request password reset untuk target
+   ├── Obtain reset link or token format
+   ├── Brute force token space (e.g., 6-digit OTP)
+   ├── Submit candidates ke reset endpoint
+   └── Find valid token through enumeration
+   DETECTION: Token attempt rate limiting
+   BYPASS: Use distributed brute force
+
+7. TOKEN_NO_EXPIRE
+   WHAT: Token without expiration
+   HOW:
+   ├── Request password reset
+   ├── Obtain reset token
+   ├── Wait extended period (days/weeks)
+   ├── Use expired-looking token
+   └── Server accepts token tanpa expiration check
+   DETECTION: Token expiration enforcement
+   BYPASS: Use token refresh mechanism abuse
 
 ENUM_ORACLE (4):
-├── user_enum_reset    — User enumeration via reset
-├── timing_enum        — Timing-based enumeration
-├── error_message      — Error message information leak
-└── response_diff      — Response difference analysis
+
+1. USER_ENUM_RESET
+   WHAT: User enumeration via reset
+   HOW:
+   ├── Submit password reset untuk existing user
+   ├── Submit password reset untuk non-existing user
+   ├── Compare response messages or timing
+   ├── Existing: "Check your email" vs Non-existing: "User not found"
+   └── Enumerate valid usernames from response differences
+   DETECTION: Uniform response for all reset requests
+   BYPASS: Use response timing differences
+
+2. TIMING_ENUM
+   WHAT: Timing-based enumeration
+   HOW:
+   ├── Send reset request untuk various usernames
+   ├── Measure response time precisely
+   ├── Existing users: longer processing (email send)
+   ├── Non-existing users: shorter processing
+   └── Distinguish users dari timing delta
+   DETECTION: Constant-time reset response handling
+   BYPASS: Use network jitter compensation
+
+3. ERROR_MESSAGE
+   WHAT: Error message information leak
+   HOW:
+   ├── Submit invalid reset request
+   ├── Analyze error messages returned
+   ├── Extract system information dari verbose errors
+   ├── Identify user existence dari specific error codes
+   └── Gather intelligence untuk further attacks
+   DETECTION: Generic error message enforcement
+   BYPASS: Use multi-step error analysis
+
+4. RESPONSE_DIFF
+   WHAT: Response difference analysis
+   HOW:
+   ├── Send reset requests dengan varied parameters
+   ├── Compare HTTP status codes, headers, body length
+   ├── Identify differences correlating with user state
+   ├── Use differences ke enumerate users
+   └── Map application behavior patterns
+   DETECTION: Response normalization
+   BYPASS: Use behavioral fingerprinting
 
 RESET_ABUSE (5):
-├── account_takeover   — Account takeover via reset
-├── password_change    — Password change hijack
-├── mfa_bypass_reset   — MFA bypass via reset
-├── oauth_reset        — OAuth token reset abuse
-└── sso_reset          — SSO session reset abuse
+
+1. ACCOUNT_TAKEOVER
+   WHAT: Account takeover via reset
+   HOW:
+   ├── Combine user enumeration dengan token prediction
+   ├── Obtain valid reset token
+   ├── Set new password untuk victim account
+   ├── Access account dengan new credentials
+   └── Change recovery options untuk persistence
+   DETECTION: Reset-to-login anomaly monitoring
+   BYPASS: Use social engineering untuk token
+
+2. PASSWORD_CHANGE_HIJACK
+   WHAT: Password change hijack
+   HOW:
+   ├── Intercept active password change session
+   ├── Inject request ke change other user password
+   ├── Use parameter manipulation (user_id=other)
+   ├── Server processes change untuk wrong account
+   └── Victim locked out dari own account
+   DETECTION: Session-bound password change enforcement
+   BYPASS: Use race condition dalam change flow
+
+3. MFA_BYPASS_RESET
+   WHAT: MFA bypass via reset
+   HOW:
+   ├── Use password reset ke bypass MFA requirement
+   ├── Reset flow skips MFA verification step
+   ├── Set new password directly
+   ├── MFA enrollment automatically disabled
+   └── Account accessible tanpa second factor
+   DETECTION: MFA re-enrollment after reset enforcement
+   BYPASS: Use account recovery flow abuse
+
+4. OAUTH_RESET
+   WHAT: OAuth token reset abuse
+   HOW:
+   ├── Identify OAuth provider used for password reset
+   ├── Manipulate OAuth redirect URI
+   ├── Intercept authorization code
+   ├── Exchange code untuk tokens
+   └── Use tokens ke complete password reset
+   DETECTION: OAuth redirect URI validation
+   BYPASS: Use OAuth state parameter manipulation
+
+5. SSO_RESET
+   WHAT: SSO session reset abuse
+   HOW:
+   ├── Identify SSO integration points
+   ├── Reset password via external identity provider
+   ├── SSO session not invalidated on reset
+   ├── Use old session tokens ke access application
+   └── Maintain access despite password change
+   DETECTION: SSO session invalidation on password change
+   BYPASS: Use session token refresh abuse
 
 FALLBACK:
 Token Prediction → Token Fixation → Host Header →
 Email Injection → Brute-force Token → Direct Reset → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Rate limit active on token brute  │ 1. Pause and use distributed approach
+force                             │ 2. Switch ke account enumeration vector
+Reset token is cryptographic RNG  │ 1. Token prediction not possible
+with entropy                      │ 2. Pivot ke token interception via email
+Host header validated by WAF      │ 1. Use X-Forwarded-Host header
+                                  │ 2. Fallback ke email header injection
+Reset flow requires CAPTCHA       │ 1. Use CAPTCHA solving service
+                                  │ 2. Bypass via direct API endpoint
+MFA required during reset flow    │ 1. Use SSO session abuse vector
+                                  │ 2. Fallback ke OAuth token manipulation
+Email provider strips headers     │ 1. Email injection ineffective
+                                  │ 2. Use response manipulation instead
 ```
 
 ---
@@ -7436,34 +11904,253 @@ Email Injection → Brute-force Token → Direct Reset → ALERT
 
 ```
 LOGIC_BYPASS (7):
-├── price_manipulate   — Price manipulation (negative qty, overflow)
-├── quantity_bypass    — Quantity limit bypass
-├── coupon_abuse       — Coupon stacking/exploitation
-├── referral_abuse     — Referral program abuse
-├── promo_abuse        — Promotion/exploit abuse
-├── loyalty_abuse      — Loyalty points manipulation
-└── giftcard_abuse     — Gift card exploitation
+
+1. PRICE_MANIPULATE
+   WHAT: Price manipulation via negative quantity or integer overflow
+   HOW:
+   ├── Intercept product price request via proxy
+   ├── Modify quantity parameter ke -1 atau nilai overflow
+   ├── Submit manipulated order ke backend
+   ├── Backend miscalculate total → negative balance / credit
+   └── Withdraw atau exploit resulting credit
+   DETECTION: Server-side price validation, negative quantity check
+   BYPASS: Use alternate method
+
+2. QUANTITY_BYPASS
+   WHAT: Quantity limit bypass untuk bulk purchase restriction
+   HOW:
+   ├── Identify purchase quantity limit (e.g., max 5 per user)
+   ├── Submit multiple parallel requests via thread pool
+   ├── Rotate session tokens / use multiple accounts
+   ├── Aggregate quantity across split orders
+   └── Bypass per-request limit tanpa per-account detection
+   DETECTION: Aggregate quantity tracking per user across sessions
+   BYPASS: Use alternate method
+
+3. COUPON_ABUSE
+   WHAT: Coupon stacking dan exploitation untuk discount accumulation
+   HOW:
+   ├── Enumerate available coupon codes (brute force / leak)
+   ├── Apply multiple coupons secara parallel ke同一 order
+   ├── Exploit race condition → apply coupon sebelum validation
+   ├── Stack percentage + fixed coupons untuk massive discount
+   └── Complete order dengan minimal atau nol payment
+   DETECTION: Coupon usage tracking, stacking detection rules
+   BYPASS: Use alternate method
+
+4. REFERRAL_ABUSE
+   WHAT: Referral program abuse untuk earn unlimited rewards
+   HOW:
+   ├── Generate valid referral code
+   ├── Create multiple dummy accounts menggunakan referral code
+   ├── Automate signup + minimal action per dummy account
+   ├── Claim referral reward untuk setiap new signup
+   └── Aggregate rewards ke main account
+   DETECTION: Account clustering detection, IP/device fingerprint analysis
+   BYPASS: Use alternate method
+
+5. PROMO_ABUSE
+   WHAT: Promotion exploit abuse untuk unauthorized discount
+   HOW:
+   ├── Identify active promotions (flash sale, happy hour)
+   ├── Intercept promotion validation endpoint
+   ├── Replay expired promotion tokens atau manipulate expiry
+   ├── Apply promotion ke ineligible items
+   └── Complete purchase dengan unauthorized promotion
+   DETECTION: Promotion lifecycle monitoring, expiry enforcement
+   BYPASS: Use alternate method
+
+6. LOYALTY_ABUSE
+   WHAT: Loyalty points manipulation untuk unauthorized reward redemption
+   HOW:
+   ├── Identify loyalty points calculation endpoint
+   ├── Manipulate transaction amount → inflates points earned
+   ├── Transfer points ke main account via internal transfer
+   ├── Exploit points rounding (e.g., 0.49 → 1 point)
+   └── Redeem accumulated points untuk high-value rewards
+   DETECTION: Points earning anomaly, rounding abuse detection
+   BYPASS: Use alternate method
+
+7. GIFTCARD_ABUSE
+   WHAT: Gift card exploitation untuk balance theft atau resale
+   HOW:
+   ├── Enumerate gift card numbers via sequential pattern
+   ├── Check balance via balance inquiry endpoint
+   ├── Drain balance ke attacker-controlled account
+   ├── Exploit return/refund → gift card refund to different card
+   └── Resell gift cards atau use for purchases
+   DETECTION: Bulk balance inquiry monitoring, abnormal redemption pattern
+   BYPASS: Use alternate method
 
 PAYMENT_ABUSE (6):
-├── payment_bypass     — Payment bypass (race condition)
-├── idor_payment       — IDOR on payment endpoint
-├── currency_confusion │ — Currency conversion manipulation
-├── discount_bypass    — Discount bypass
-├── tax_evasion        — Tax calculation bypass
-└── refund_abuse       — Refund exploitation
+
+1. PAYMENT_BYPASS
+   WHAT: Payment bypass via race condition pada checkout flow
+   HOW:
+   ├── Initiate legitimate checkout session
+   ├── Submit "confirm order" + "cancel payment" secara parallel
+   ├── Race condition → order confirmed tanpa payment completion
+   ├── Exploit callback timing → skip payment verification
+   └── Receive order tanpa successful payment
+   DETECTION: Payment state consistency checks, race condition monitoring
+   BYPASS: Use alternate method
+
+2. IDOR_PAYMENT
+   WHAT: IDOR pada payment endpoint untuk access unauthorized transactions
+   HOW:
+   ├── Identify payment endpoint pattern (e.g., /pay/ORDER_ID)
+   ├── Enumerate order IDs via sequential guessing
+   ├── Access payment page untuk unauthorized order
+   ├── Modify payment parameters → redirect ke attacker account
+   └── Complete payment untuk order milik victim
+   DETECTION: Payment access authorization check, IDOR testing
+   BYPASS: Use alternate method
+
+3. CURRENCY_CONFUSION
+   WHAT: Currency conversion manipulation untuk price arbitrage
+   HOW:
+   ├── Identify multi-currency support endpoint
+   ├── Switch currency context sebelum payment finalization
+   ├── Exploit conversion rate caching lag
+   ├── Pay in weaker currency → item listed in stronger currency
+   └── Profit dari exchange rate discrepancy
+   DETECTION: Currency consistency validation, real-time rate verification
+   BYPASS: Use alternate method
+
+4. DISCOUNT_BYPASS
+   WHAT: Discount bypass untuk unauthorized price reduction
+   HOW:
+   ├── Identify discount validation endpoint
+   ├── Apply discount code → check server response
+   ├── Replay discount application tanpa usage limit enforcement
+   ├── Stack multiple discounts secara sequential
+   └── Complete purchase dengan compounded discount
+   DETECTION: Discount usage tracking, stacking detection
+   BYPASS: Use alternate method
+
+5. TAX_EVASION
+   WHAT: Tax calculation bypass untuk zero-tax purchase
+   HOW:
+   ├── Identify tax calculation endpoint
+   ├── Manipulate shipping address ke tax-free jurisdiction
+   ├── Modify product classification → exempt category
+   ├── Override tax calculation via API parameter manipulation
+   └── Complete purchase tanpa tax deduction
+   DETECTION: Tax calculation audit, address verification cross-check
+   BYPASS: Use alternate method
+
+6. REFUND_ABUSE
+   WHAT: Refund exploitation untuk unauthorized fund recovery
+   HOW:
+   ├── Complete legitimate purchase
+   ├── Request refund ke original payment method
+   ├── Simultaneously use/consume the purchased item
+   ├── Exploit refund approval timing → retain item + refund
+   └── Repeat across multiple items/accounts
+   DETECTION: Refund pattern analysis, item usage tracking
+   BYPASS: Use alternate method
 
 FLOW_BYPASS (6):
-├── step_skip          — Workflow step skipping
-├── state_manipulate   — State machine manipulation
-├── order_manipulate   — Order sequence manipulation
-├── cart_poison        — Cart manipulation
-├── checkout_bypass    — Checkout flow bypass
-└── verification_bypass│ — Verification step bypass
+
+1. STEP_SKIP
+   WHAT: Workflow step skipping untuk bypass validation stage
+   HOW:
+   ├── Map target workflow steps (e.g., identity → payment → confirm)
+   ├── Identify step validation endpoint
+   ├── Directly submit final step tanpa completing prerequisites
+   ├── Server-side validation weak → step accepted
+   └── Workflow completed tanpa mandatory steps
+   DETECTION: Step dependency enforcement, workflow state validation
+   BYPASS: Use alternate method
+
+2. STATE_MANIPULATE
+   WHAT: State machine manipulation untuk force invalid state transitions
+   HOW:
+   ├── Analyze workflow state machine diagram
+   ├── Identify valid transitions (e.g., pending → processing → shipped)
+   ├── Submit state change request ke invalid transition
+   ├── Exploit missing server-side transition validation
+   └── Force workflow ke attacker-controlled state
+   DETECTION: State transition whitelist enforcement, anomaly detection
+   BYPASS: Use alternate method
+
+3. ORDER_MANIPULATE
+   WHAT: Order sequence manipulation untuk priority tampering
+   HOW:
+   ├── Identify order processing queue
+   ├── Submit order dengan manipulated priority parameter
+   ├── Exploit queue position logic → elevate order position
+   ├── Interleave attacker orders di front of victim orders
+   └── Process attacker orders before legitimate ones
+   DETECTION: Order queue integrity monitoring, priority anomaly detection
+   BYPASS: Use alternate method
+
+4. CART_POISON
+   WHAT: Cart manipulation untuk inject unauthorized items
+   HOW:
+   ├── Access victim's active shopping cart via session
+   ├── Modify cart contents (add/remove items)
+   ├── Change item quantities → inflate total
+   ├── Apply unauthorized discount codes ke victim's cart
+   └── Victim proceeds to checkout with tampered cart
+   DETECTION: Cart modification audit log, session-based cart protection
+   BYPASS: Use alternate method
+
+5. CHECKOUT_BYPASS
+   WHAT: Checkout flow bypass untuk complete order tanpa full validation
+   HOW:
+   ├── Identify checkout steps (address → shipping → payment → confirm)
+   ├── Submit direct API call ke order confirmation endpoint
+   ├── Bypass mandatory intermediate steps
+   ├── Exploit missing middleware validation
+   └── Order placed tanpa completing checkout flow
+   DETECTION: Checkout step enforcement, API endpoint protection
+   BYPASS: Use alternate method
+
+6. VERIFICATION_BYPASS
+   WHAT: Verification step bypass untuk skip mandatory checks
+   HOW:
+   ├── Identify verification requirements (email, phone, KYC)
+   ├── Intercept verification response endpoint
+   ├── Replay previously successful verification response
+   ├── Modify verification status field directly
+   └── Account marked as verified tanpa completing verification
+   DETECTION: Verification token uniqueness enforcement, replay detection
+   BYPASS: Use alternate method
 
 FALLBACK:
 Price Manip → Quantity Bypass → Coupon Abuse →
 Referral Abuse → Payment Bypass → IDOR →
 Step Skip → State Manipulate → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+Payment race condition fails      │ 1. Retry dengan increased parallel threads
+(stuck in pending state)          │ 2. Fallback ke IDOR payment endpoint
+                                  │ 3. Abort and escalate ke refund abuse path
+                                  │
+Multiple coupon stacking blocked  │ 1. Try single coupon dengan higher value
+by server-side validation         │ 2. Fallback ke promo abuse via expiry replay
+                                  │ 3. Pivot ke referral abuse
+                                  │
+Negative quantity rejected by     │ 1. Try decimal quantity (0.1, 0.01)
+integer validation                │ 2. Fallback ke quantity bypass via split accounts
+                                  │ 3. Move ke loyalty points rounding abuse
+                                  │
+Workflow state transition denied  │ 1. Enumerate valid transitions via API response
+                                  │ 2. Fallback ke direct step skip
+                                  │ 3. Manipulate session state via cart poison
+                                  │
+Gift card enumeration rate-       │ 1. Slow down enumeration (rotate proxies)
+limited by WAF                   │ 2. Fallback ke gift card return exploit
+                                  │ 3. Pivot ke refund abuse path
+                                  │
+Referral dummy account detected   │ 1. Rotate device fingerprints (emulator)
+by device clustering              │ 2. Use VPN + browser profile rotation
+                                  │ 3. Fallback ke coupon stacking abuse
 ```
 
 ---
@@ -7472,29 +12159,208 @@ Step Skip → State Manipulate → ALERT
 
 ```
 GRPC_ATTACKS (6):
-├── reflection_leak    — gRPC reflection (full API dump)
-├── bidi_flood         — Bidirectional streaming flood
-├── unary_flood        — Unary RPC flood
-├── metadata_leak      — Metadata information leak
-├── tls_bypass         — gRPC TLS bypass
-└── deadline_abuse     — Deadline/timeout abuse
+
+1. REFLECTION_LEAK
+   WHAT: gRPC reflection dump untuk expose full API surface
+   HOW:
+   ├── Connect ke target gRPC endpoint
+   ├── Query reflection service (grpc.reflection.v1alpha.ServerReflection)
+   ├── Enumerate all services, methods, dan message types
+   ├── Dump proto file structure (field types, oneof, enums)
+   └── Use extracted schema untuk craft targeted attacks
+   DETECTION: Monitor reflection endpoint access, rate-limit reflection queries
+   BYPASS: Use alternate method
+
+2. BIDI_FLOOD
+   WHAT: Bidirectional streaming flood untuk exhaust server resources
+   HOW:
+   ├── Open bidirectional streaming connection ke target RPC
+   ├── Send continuous stream requests tanpa waiting responses
+   ├── Exhaust server-side stream handlers (goroutine / thread pool)
+   ├── Maintain multiple parallel streams
+   └── Server becomes unresponsive (DoS via resource exhaustion)
+   DETECTION: Stream count monitoring, per-client connection limits
+   BYPASS: Use alternate method
+
+3. UNARY_FLOOD
+   WHAT: Unary RPC flood untuk overwhelm server request processing
+   HOW:
+   ├── Identify target unary RPC method
+   ├── Generate high-volume unary requests via connection pool
+   ├── Maximize requests per second via HTTP/2 multiplexing
+   ├── Include minimal payload untuk maximum throughput
+   └── Server overwhelmed → latency spike atau complete DoS
+   DETECTION: Request rate monitoring, HTTP/2 stream limits
+   BYPASS: Use alternate method
+
+4. METADATA_LEAK
+   WHAT: Metadata information leak via gRPC headers dan trailing metadata
+   HOW:
+   ├── Send probe request ke target RPC
+   ├── Capture response headers dan trailing metadata
+   ├── Extract internal information (server version, auth tokens, internal IPs)
+   ├── Correlate metadata across multiple calls
+   └── Build target infrastructure profile from leaked metadata
+   DETECTION: Metadata sanitization enforcement, header audit logging
+   BYPASS: Use alternate method
+
+5. TLS_BYPASS
+   WHAT: gRPC TLS bypass untuk downgrade atau bypass transport encryption
+   HOW:
+   ├── Connect ke gRPC endpoint tanpa TLS (port opportunistic)
+   ├── Exploit missing TLS enforcement pada reflection port
+   ├── Intercept plaintext gRPC traffic
+   ├── Extract authentication tokens dari metadata
+   └── Replay captured requests via authenticated session
+   DETECTION: TLS enforcement policy, plaintext connection rejection
+   BYPASS: Use alternate method
+
+6. DEADLINE_ABUSE
+   WHAT: Deadline/timeout abuse untuk manipulate server-side processing
+   HOW:
+   ├── Send requests dengan extremely long deadline values
+   ├── Server allocates resources untuk extended processing
+   ├── Flood dengan long-deadline requests → resource exhaustion
+   ├── Exploit deadline propagation ke downstream services
+   └── Cascading timeout failure across service mesh
+   DETECTION: Deadline cap enforcement, maximum timeout limits
+   BYPASS: Use alternate method
 
 GRPC_EXPLOIT (5):
-├── authz_bypass       — Authorization bypass via gRPC
-├── injection_grpc     — Injection via gRPC arguments
-├── ssrf_grpc          — SSRF via gRPC resolvers
-├── enum_grpc          — Resource enumeration via gRPC
-└── proto_poison       — Protobuf message poisoning
+
+1. AUTHZ_BYPASS
+   WHAT: Authorization bypass via gRPC metadata manipulation
+   HOW:
+   ├── Intercept gRPC request flow
+   ├── Add/modify authorization headers dalam metadata
+   ├── Exploit missing server-side authz validation
+   ├── Access admin-level RPC methods tanpa credentials
+   └── Execute privileged operations via escalated access
+   DETECTION: Metadata authorization enforcement, RBAC on gRPC methods
+   BYPASS: Use alternate method
+
+2. INJECTION_GRPC
+   WHAT: Injection via gRPC method arguments
+   HOW:
+   ├── Identify gRPC methods accepting string/SQL parameters
+   ├── Craft malicious protobuf messages dengan injection payloads
+   ├── Inject SQL/NoSQL commands via message fields
+   ├── Exploit unsanitized input handling dalam RPC handler
+   └── Execute injected commands pada server-side database
+   DETECTION: Input sanitization on gRPC message fields, parameterized queries
+   BYPASS: Use alternate method
+
+3. SSRF_GRPC
+   WHAT: SSRF via gRPC resolvers dan service discovery fields
+   HOW:
+   ├── Identify gRPC fields accepting URLs atau service names
+   ├── Craft protobuf message dengan attacker-controlled URL
+   ├── Server-side makes request ke internal service
+   ├── Enumerate internal network via error messages
+   └── Access internal gRPC services tanpa direct network access
+   DETECTION: URL validation, SSRF protection on outbound requests
+   BYPASS: Use alternate method
+
+4. ENUM_GRPC
+   WHAT: Resource enumeration via gRPC List/Get methods
+   HOW:
+   ├── Query all available RPC methods via reflection
+   ├── Identify List/Get methods accepting IDs atau filters
+   ├── Enumerate resources via sequential ID iteration
+   ├── Harvest sensitive data (users, orders, configs)
+   └── Export enumerated data untuk further exploitation
+   DETECTION: Enumeration rate limiting, access control on List methods
+   BYPASS: Use alternate method
+
+5. PROTO_POISON
+   WHAT: Protobuf message poisoning untuk corrupt server-side data
+   HOW:
+   ├── Analyze target message schemas via reflection
+   ├── Craft malformed protobuf messages
+   ├── Inject unexpected field types atau extreme values
+   ├── Exploit weak schema validation on server
+   └── Corrupted data stored → application logic failure
+   DETECTION: Schema validation enforcement, message size limits
+   BYPASS: Use alternate method
 
 PROTOBUF_ABUSE (4):
-├── unknown_field     — Unknown field injection
-├── oneof_abuse        — Oneof field confusion
-├── repeated_overflow  — Repeated field overflow
-└── any_type_abuse     — Any type URL abuse
+
+1. UNKNOWN_FIELD
+   WHAT: Unknown field injection untuk bypass schema validation
+   HOW:
+   ├── Analyze target proto definition
+   ├── Append unknown fields ke valid message
+   ├── Server ignores unknown fields tapi processes message
+   ├── Hidden logic triggered oleh unknown field values
+   └── Bypass validation yang only checks known fields
+   DETECTION: Strict schema validation, unknown field rejection
+   BYPASS: Use alternate method
+
+2. ONEOF_ABUSE
+   WHAT: Oneof field confusion untuk exploit type confusion
+   HOW:
+   ├── Identify oneof field in proto definition
+   ├── Set multiple fields within same oneof group
+   ├── Exploit weak oneof validation (last-writer-wins)
+   ├── Server processes incorrect field interpretation
+   └── Trigger unintended logic branch
+   DETECTION: Strict oneof validation, field presence checks
+   BYPASS: Use alternate method
+
+3. REPEATED_OVERFLOW
+   WHAT: Repeated field overflow untuk exhaust server memory
+   HOW:
+   ├── Identify repeated (array) fields in message
+   ├── Craft message dengan excessive repeated entries
+   ├── Server allocates memory untuk full array processing
+   ├── Memory exhaustion → DoS atau OOM crash
+   └── Repeat with multiple concurrent connections
+   DETECTION: Repeated field size limits, memory allocation caps
+   BYPASS: Use alternate method
+
+4. ANY_TYPE_ABUSE
+   WHAT: Any type URL abuse untuk inject unexpected message types
+   HOW:
+   ├── Identify Any type fields in proto definition
+   ├── Craft Any message dengan attacker-controlled type_url
+   ├── Server attempts to deserialize ke specified type
+   ├── Exploit weak type resolution logic
+   └── Trigger deserialization vulnerability atau type confusion
+   DETECTION: Any type whitelist enforcement, strict type resolution
+   BYPASS: Use alternate method
 
 FALLBACK:
 Reflection Leak → Bidirectional Flood → Unary Flood →
 Metadata Leak → TLS Bypass → Unknown Field → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+gRPC reflection endpoint returns   │ 1. Use connect-client tools (grpcurl, grpc_cli)
+404 or disabled                   │ 2. Try proto file leak via /grpc-web endpoints
+                                  │ 3. Fallback ke metadata leak via header probing
+                                  │
+Protobuf message larger than       │ 1. Split payload ke multiple repeated fields
+400 bytes exceeds server limit     │ 2. Use nested messages untuk reduce top-level size
+                                  │ 3. Fallback ke unknown field injection
+                                  │
+Bidirectional stream reset by      │ 1. Reduce stream count per connection
+server (GOAWAY frame)             │ 2. Rotate client connections faster
+                                  │ 3. Fallback ke unary flood approach
+                                  │
+TLS certificate pinning blocks    │ 1. Try plaintext port (non-TLS fallback)
+TLS bypass attempt                │ 2. Use gRPC-Web proxy untuk MITM
+                                  │ 3. Bypass via metadata leak on headers
+                                  │
+Authz bypass fails due to         │ 1. Extract token dari metadata leak
+per-method RBAC                   │ 2. Fallback ke proto file injection
+                                  │ 3. Enumerate accessible methods via list
+                                  │
+Oneof confusion rejected by       │ 1. Try repeated overflow as alternative
+strict schema validator           │ 2. Abuse Any type URL field
+                                  │ 3. Fallback ke reflection-assisted enumeration
 ```
 
 ---
@@ -7503,27 +12369,186 @@ Metadata Leak → TLS Bypass → Unknown Field → ALERT
 
 ```
 VLAN_ATTACKS (5):
-├── double_tag         — Double-tagging (802.1Q) attack
-├── dtp_spoof          — DTP (Dynamic Trunking Protocol) spoofing
-├── native_vlan_abuse  — Native VLAN manipulation
-├── trunk_negotiate    — Trunk negotiation
-└── vlan_shift         — VLAN tag shifting
+
+1. DOUBLE_TAG
+   WHAT: Double-tagging (802.1Q) attack untuk hop ke target VLAN
+   HOW:
+   ├── Identify native VLAN ID (default: 1)
+   ├── Craft frame dengan outer 802.1Q tag = native VLAN
+   ├── Embed inner 802.1Q tag = target VLAN ID
+   ├── Send frame → switch strips outer tag (native VLAN)
+   └── Frame forwarded ke target VLAN (inner tag processed)
+   DETECTION: Double-tagged frame inspection, VLAN hopping detection
+   BYPASS: Use alternate method
+
+2. DTP_SPOOF
+   WHAT: DTP (Dynamic Trunking Protocol) spoofing untuk create trunk link
+   HOW:
+   ├── Enable DTP on attacker's NIC (e.g., Yersinia, scapy)
+   ├── Send DTP Dynamic Desirable / Dynamic Auto frames
+   ├── Switch negotiates trunk link tanpa authentication
+   ├── Attacker trunk link carries all VLANs
+   └── Access any VLAN via trunk encapsulation
+   DETECTION: DTP disabled on access ports, trunk negotiation monitoring
+   BYPASS: Use alternate method
+
+3. NATIVE_VLAN_ABUSE
+   WHAT: Native VLAN manipulation untuk untagged traffic injection
+   HOW:
+   ├── Identify native VLAN configuration pada switch port
+   ├── Send untagged frames pada native VLAN
+   ├── Frames switched dalam native VLAN scope
+   ├── Modify native VLAN ke high-value VLAN ID
+   └── Untagged traffic now routed ke attacker-controlled VLAN
+   DETECTION: Native VLAN mismatch alerts, untagged traffic monitoring
+   BYPASS: Use alternate method
+
+4. TRUNK_NEGOTIATE
+   WHAT: Trunk negotiation untuk establish unauthorized trunk link
+   HOW:
+   ├── Configure attacker port dengan DTP trunking mode
+   ├── Send DTP frames ke switch port
+   ├── Switch accepts trunk negotiation
+   ├── All VLANs accessible via trunk
+   └── Capture/inject traffic across all VLANs
+   DETECTION: Unauthorized trunk detection, DTP frame monitoring
+   BYPASS: Use alternate method
+
+5. VLAN_SHIFT
+   WHAT: VLAN tag shifting untuk bypass VLAN-based segmentation
+   HOW:
+   ├── Craft frame dengan shifted/malformed 802.1Q header
+   ├── Exploit switch parsing vulnerability
+   ├── Frame processed dalam unexpected VLAN context
+   ├── Bypass VLAN-based access control
+   └── Access restricted VLAN segment
+   DETECTION: 802.1Q header validation, malformed frame rejection
+   BYPASS: Use alternate method
 
 VLAN_EXPLOIT (4):
-├── inter_vlan         — Inter-VLAN routing attack
-├── private_vlan       — Private VLAN bypass
-├── management_vlan    — Management VLAN access
-└── voice_vlan         — Voice VLAN exploitation
+
+1. INTER_VLAN
+   WHAT: Inter-VLAN routing attack untuk cross-segment access
+   HOW:
+   ├── Map inter-VLAN routing configuration
+   ├── Identify router-on-a-stick atau L3 switch
+   ├── Exploit weak ACLs between VLANs
+   ├── Inject traffic ke routing interface
+   └── Route between VLANs tanpa legitimate authorization
+   DETECTION: Inter-VLAN routing audit, ACL enforcement verification
+   BYPASS: Use alternate method
+
+2. PRIVATE_VLAN
+   WHAT: Private VLAN bypass untuk access isolated ports
+   HOW:
+   ├── Identify PVLAN configuration (primary + secondary)
+   ├── Determine PVLAN type (isolated, community, promiscuous)
+   ├── Craft frames ke exploit PVLAN forwarding logic
+   ├── Access isolated ports tanpa going through promiscuous port
+   └── Bypass host isolation within same subnet
+   DETECTION: PVLAN configuration audit, inter-port communication monitoring
+   BYPASS: Use alternate method
+
+3. MANAGEMENT_VLAN
+   WHAT: Management VLAN access untuk network device control
+   HOW:
+   ├── Identify management VLAN ID (e.g., VLAN 1, VLAN 99)
+   ├── Obtain access via VLAN hopping atau DTP spoof
+   ├── Access switch management interface (SSH, HTTP)
+   ├── Extract or modify network device configurations
+   └── Full network infrastructure compromise
+   DETECTION: Management VLAN access logging, unauthorized management access alerts
+   BYPASS: Use alternate method
+
+4. VOICE_VLAN
+   WHAT: Voice VLAN exploitation untuk network pivot
+   HOW:
+   ├── Identify voice VLAN ID (CDP/LLDP advertisement)
+   ├── Configure attacker NIC untuk voice VLAN tagging
+   ├── Join voice VLAN network segment
+   ├── Access voice VLAN resources (phones, call servers)
+   └── Pivot ke data network via voice VLAN misconfiguration
+   DETECTION: Voice VLAN port assignment monitoring, CDP/LLDP audit
+   BYPASS: Use alternate method
 
 VLAN_DEFENSE_BYPASS (4):
-├── acl_bypass         — ACL bypass via VLAN
-├── firewall_hop       — Firewall hop via VLAN
-├── segmentation_bypass│ — Network segmentation bypass
-└── monitoring_evasion │ — Monitoring evasion via VLAN
+
+1. ACL_BYPASS
+   WHAT: ACL bypass via VLAN hopping untuk bypass network filtering
+   HOW:
+   ├── Identify ACL placement (ingress/egress)
+   ├── Hop ke VLAN yang tidak covered oleh ACL
+   ├── Access target resources via alternate VLAN path
+   ├── Bypass firewall rules via VLAN-based redirect
+   └── Reach protected resources tanpa triggering ACL
+   DETECTION: ACL coverage audit across all VLANs, cross-VLAN policy enforcement
+   BYPASS: Use alternate method
+
+2. FIREWALL_HOP
+   WHAT: Firewall hop via VLAN untuk bypass network segmentation
+   HOW:
+   ├── Map firewall VLAN interfaces
+   ├── Identify unfiltered VLAN path
+   ├── Route traffic ke attacker-controlled VLAN
+   ├── Firewall rules not applicable ke new VLAN context
+   └── Access internal network tanpa firewall detection
+   DETECTION: Firewall VLAN interface audit, cross-VLAN traffic monitoring
+   BYPASS: Use alternate method
+
+3. SEGMENTATION_BYPASS
+   WHAT: Network segmentation bypass via VLAN manipulation
+   HOW:
+   ├── Identify network segmentation boundaries
+   ├── Exploit VLAN misconfiguration atau default settings
+   ├── Hop ke restricted segments via VLAN pivot
+   ├── Access segmented resources (DB servers, admin systems)
+   └── Full segmentation breach
+   DETECTION: Segmentation integrity testing, VLAN audit
+   BYPASS: Use alternate method
+
+4. MONITORING_EVASION
+   WHAT: Monitoring evasion via VLAN misdirection
+   HOW:
+   ├── Identify monitoring/NIDS placement pada specific VLANs
+   ├── Route attack traffic via unmonitored VLAN
+   ├── Bypass IDS/IPS sensors via VLAN hopping
+   ├── Execute attack tanpa triggering monitoring alerts
+   └── Evade detection by staying outside monitored segments
+   DETECTION: Monitoring coverage across all VLANs, sensor placement audit
+   BYPASS: Use alternate method
 
 FALLBACK:
 Double Tag → DTP Spoof → Native VLAN → Trunk Negotiate →
 VLAN Shift → Inter-VLAN → Private VLAN → ALERT
+```
+
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+DTP disabled on all switch ports  │ 1. Try double-tagging (802.1Q) attack
+(prevents trunk negotiation)      │ 2. Exploit native VLAN misconfiguration
+                                  │ 3. Fallback ke inter-VLAN routing exploit
+                                  │
+Double-tag frame dropped by       │ 1. Try VLAN tag shifting technique
+managed switch with VLAN hopping  │ 2. Pivot ke management VLAN via CDP
+protection                        │ 3. Fall back ke ARP/DHCP spoofing path
+                                  │
+Voice VLAN access restricted      │ 1. Enumerate via LLDP neighbor discovery
+by port security                  │ 2. Try private VLAN bypass
+                                  │ 3. Fallback ke monitoring evasion path
+                                  │
+Private VLAN properly enforced    │ 1. Try inter-VLAN routing exploit
+(no cross-port communication)     │ 2. Exploit promiscuous port access
+                                  │ 3. Pivot ke firewall hop technique
+                                  │
+ACL covers all VLAN transitions   │ 1. Identify VLAN without ACL coverage
+                                  │ 2. Try segmentation bypass via routing misconfig
+                                  │ 3. Fall back ke ARP spoofing for local pivot
+                                  │
+All ports in same VLAN            │ 1. Try management VLAN discovery via CDP
+(no VLAN segmentation)           │ 2. Direct ARP-based attack path
+                                  │ 3. Fallback ke DHCP spoofing
 ```
 
 ---
@@ -7532,33 +12557,221 @@ VLAN Shift → Inter-VLAN → Private VLAN → ALERT
 
 ```
 ARP_ATTACKS (5):
-├── arp_spoof          — ARP cache poisoning (Ettercap, arpspoof)
-├── arp_replay         — ARP replay attack
-├── arp_dos            — ARP flood DoS
-├── arp_table_poison   — ARP table manipulation
-└── gratuitous_arp     — Gratuitous ARP spoofing
+
+1. ARP_SPOOF
+   WHAT: ARP cache poisoning menggunakan Ettercap atau arpspoof
+   HOW:
+   ├── Enable IP forwarding pada attacker machine
+   ├── Send gratuitous ARP replies ke victim (claim gateway IP)
+   ├── Send gratuitous ARP replies ke gateway (claim victim IP)
+   ├── Victim ARP cache poisoned → traffic routes via attacker
+   └── Intercept, modify, atau relay traffic (MITM position)
+   DETECTION: ARP table anomaly, duplicate IP detection, static ARP entries
+   BYPASS: Use alternate method
+
+2. ARP_REPLAY
+   WHAT: ARP replay attack untuk flood ARP cache dengan poisoned entries
+   HOW:
+   ├── Capture legitimate ARP packets dari network
+   ├── Modify MAC address field → point ke attacker
+   ├── Replay modified ARP packets ke broadcast domain
+   ├── ARP cache flooded dengan poisoned entries
+   └── Network traffic diverted ke attacker
+   DETECTION: ARP storm detection, excessive ARP reply rate monitoring
+   BYPASS: Use alternate method
+
+3. ARP_DOS
+   WHAT: ARP flood DoS untuk disrupt network connectivity
+   HOW:
+   ├── Generate massive ARP requests/replies tanpa valid targets
+   ├── Flood network broadcast domain dengan ARP traffic
+   ├── Victim's ARP table overflow (limited size)
+   ├── Legitimate ARP entries evicted → communication breakdown
+   └── Network-wide disruption (DoS)
+   DETECTION: ARP flood rate monitoring, broadcast storm detection
+   BYPASS: Use alternate method
+
+4. ARP_TABLE_POISON
+   WHAT: ARP table manipulation untuk redirect traffic flow
+   HOW:
+   ├── Send targeted ARP replies ke specific hosts
+   ├── Poison ARP cache untuk redirect traffic paths
+   ├── Modify ARP entries untuk impersonate trusted hosts
+   ├── Traffic rerouted tanpa victim awareness
+   └── Persistent poisoning via periodic ARP refresh
+   DETECTION: ARP table change monitoring, trusted ARP entry alerts
+   BYPASS: Use alternate method
+
+5. GRATUITOUS_ARP
+   WHAT: Gratuitous ARP spoofing untuk hijack network identity
+   HOW:
+   ├── Send unsolicited ARP announcements ke broadcast
+   ├── Claim ownership of gateway IP address
+   ├── All hosts update ARP cache → attacker becomes gateway
+   ├── Intercept all outbound traffic
+   └── Full MITM position established
+   DETECTION: Duplicate IP detection, gratuitous ARP monitoring
+   BYPASS: Use alternate method
 
 DHCP_ATTACKS (5):
-├── dhcp_starvation    — DHCP address starvation
-├── dhcp_spoof         — Rogue DHCP server
-├── dhcp_option_abuse  — DHCP option manipulation
-├── dhcp_rogue         — DHCP rogue reply (NAK/ACK)
-└── dhcp_rebind        — DHCP rebinding attack
+
+1. DHCP_STARVATION
+   WHAT: DHCP address starvation untuk exhaust IP address pool
+   HOW:
+   ├── Generate thousands of DHCP DISCOVER requests
+   ├── Use random MAC addresses untuk each request
+   ├── DHCP server allocates IP ke each request
+   ├── IP pool exhausted → no IPs available
+   └── Legitimate clients cannot obtain IP (DoS)
+   DETECTION: DHCP pool exhaustion alerts, abnormal DISCOVER rate
+   BYPASS: Use alternate method
+
+2. DHCP_SPOOF
+   WHAT: Rogue DHCP server untuk intercept client network configuration
+   HOW:
+   ├── Deploy rogue DHCP server pada network segment
+   ├── Respond faster ke DHCP DISCOVER than legitimate server
+   ├── Assign attacker-controlled default gateway
+   ├── Assign attacker-controlled DNS server
+   └── Client traffic routed via attacker (MITM position)
+   DETECTION: Rogue DHCP detection, DHCP snooping
+   BYPASS: Use alternate method
+
+3. DHCP_OPTION_ABUSE
+   WHAT: DHCP option manipulation untuk inject malicious configuration
+   HOW:
+   ├── Intercept DHCP OFFER/ACK messages
+   ├── Modify DHCP options (DNS, gateway, domain search list)
+   ├── Inject malicious DNS server via option 6
+   ├── Inject malicious TFTP server via option 66
+   └── Client configuration poisoned
+   DETECTION: DHCP option monitoring, configuration integrity checks
+   BYPASS: Use alternate method
+
+4. DHCP_ROGUE
+   WHAT: DHCP rogue reply (NAK/ACK spoofing) untuk disrupt or redirect
+   HOW:
+   ├── Monitor DHCP REQUEST messages
+   ├── Send forged DHCP NAK → client forced ke re-negotiate
+   ├── Send forged DHCP ACK → client accepts rogue configuration
+   ├── Timing window exploitation untuk maximize impact
+   └── Client temporarily disrupted atau permanently misconfigured
+   DETECTION: DHCP NAK/ACK rate monitoring, rogue response detection
+   BYPASS: Use alternate method
+
+5. DHCP_REBIND
+   WHAT: DHCP rebinding attack untuk hijack renewed leases
+   HOW:
+   ├── Wait untuk DHCP lease expiry (T1/T2 timer)
+   ├── Client sends DHCP REQUEST ke original server
+   ├── Intercept → respond with rogue DHCP ACK
+   ├── Client rebinding redirected ke attacker-controlled config
+   └── Persistent MITM via lease renewal hijack
+   DETECTION: DHCP rebinding anomaly, unexpected server responses
+   BYPASS: Use alternate method
 
 MITM_EXPLOIT (6):
-├── mitm_arp           — ARP-based man-in-the-middle
-├── mitm_dhcp          — DHCP-based man-in-the-middle
-├── mitm_dns           — DNS hijacking via ARP/DHCP
-├── sslstrip           — SSLStrip downgrade
-├── session_hijack     — Session hijacking via MITM
-└── credential_harvest │ — Credential harvesting via MITM
+
+1. MITM_ARP
+   WHAT: ARP-based man-in-the-middle untuk intercept unencrypted traffic
+   HOW:
+   ├── ARP poison victim + gateway (see ARP_SPOOF)
+   ├── Enable IP forwarding untuk relay traffic
+   ├── Capture plaintext traffic (HTTP, FTP, Telnet)
+   ├── Extract credentials dan sensitive data
+   └── Modify traffic in-flight (inject content, redirect)
+   DETECTION: ARP spoofing detection, encrypted traffic monitoring
+   BYPASS: Use alternate method
+
+2. MITM_DHCP
+   WHAT: DHCP-based man-in-the-middle untuk configuration hijack
+   HOW:
+   ├── Deploy rogue DHCP server (see DHCP_SPOOF)
+   ├── Assign attacker-controlled gateway
+   ├── All victim traffic routes via attacker
+   ├── Intercept ke decrypt (if SSL stripping successful)
+   └── Persistent MITM via DHCP lease management
+   DETECTION: DHCP snooping, gateway validation
+   BYPASS: Use alternate method
+
+3. MITM_DNS
+   WHAT: DNS hijacking via ARP/DHCP untuk redirect domain resolution
+   HOW:
+   ├── ARP poison + rogue DNS server via DHCP option 6
+   ├── Intercept DNS queries dari victim
+   ├── Respond dengan attacker-controlled IP untuk target domains
+   ├── Victim connects ke attacker-controlled server
+   └── Harvest credentials via fake login pages
+   DETECTION: DNS response validation, DNSSEC verification
+   BYPASS: Use alternate method
+
+4. SSLSTRIP
+   WHAT: SSLStrip downgrade untuk downgrade HTTPS ke HTTP
+   HOW:
+   ├── Establish MITM position (ARP/DHCP based)
+   ├── Intercept HTTPS redirect responses
+   ├── Strip SSL/TLS upgrade headers
+   ├── Present HTTP version tanpa TLS to victim
+   ├── Victim interacts tanpa encryption
+   └── Credentials captured in plaintext
+   DETECTION: HSTS enforcement, certificate pinning validation
+   BYPASS: Use alternate method
+
+5. SESSION_HIJACK
+   WHAT: Session hijacking via MITM untuk hijack authenticated sessions
+   HOW:
+   ├── Establish MITM position via ARP/DHCP poisoning
+   ├── Intercept session cookies dari plaintext traffic
+   ├── Replay session tokens via attacker browser
+   ├── Access victim's authenticated sessions
+   └── Full account takeover tanpa credentials
+   DETECTION: Session binding, IP-based session validation, token rotation
+   BYPASS: Use alternate method
+
+6. CREDENTIAL_HARVEST
+   WHAT: Credential harvesting via MITM untuk mass credential theft
+   HOW:
+   ├── Establish network-wide MITM (ARP spoof + rogue DHCP)
+   ├── Inject credential harvesting form via HTTP injection
+   ├── Present fake login pages untuk target services
+   ├── Capture submitted credentials
+   └── Aggregate harvested credentials untuk lateral movement
+   DETECTION: Form injection detection, credential submission monitoring
+   BYPASS: Use alternate method
 
 FALLBACK:
 ARP Spoof → DHCP Starvation → Rogue DHCP →
 MITM ARP → SSLStrip → Session Hijack → ALERT
 ```
 
----
+**Edge Cases:**
+```
+SCENARIO                          │ RESPONSE
+──────────────────────────────────┼──────────────────────────────────
+DHCP snooping blocks rogue        │ 1. Try ARP spoofing instead (no DHCP needed)
+DHCP server responses             │ 2. Exploit DHCP snooping bypass via trusted port
+                                  │ 3. Fallback ke static IP assignment + ARP poison
+                                  │
+ARP poisoning detected by NAC     │ 1. Try gratuitous ARP (lower detection profile)
+or endpoint protection            │ 2. Use DHCP option abuse for config hijack
+                                  │ 3. Fallback ke DNS hijacking path
+                                  │
+IP forwarding blocked by host     │ 1. Use responder / nbtspoof untuk local capture
+OS (Windows default)              │ 2. Try DHCP starvation + rogue DHCP
+                                  │ 3. Fallback ke SSLStrip + credential harvest
+                                  │
+HSTS prevents SSLStrip downgrade  │ 1. Try session hijacking via cookie theft
+                                  │ 2. Use ARP spoofing + DNS hijack combination
+                                  │ 3. Fallback ke direct credential injection
+                                  │
+DHCP pool too large for           │ 1. Focus on DHCP spoofing (rogue server)
+starvation to exhaust             │ 2. Try ARP-based MITM instead
+                                  │ 3. Use DHCP option abuse untuk partial hijack
+                                  │
+Static ARP entries prevent        │ 1. Try DHCP starvation + rogue server
+cache poisoning                   │ 2. Use monitoring evasion via unmonitored VLAN
+                                  │ 3. Fallback ke VLAN hopping path
+```
 
 ## 11. STATISTIK TOTAL
 
@@ -8783,7 +13996,7 @@ LAYER 25 - IMPLANT GENERATOR:
 └── TC-495  Full implant chain                   → Full chain success
 ```
 
-### Layer 26-30: Container, Cloud, SE, Wireless, Supply Chain
+### Layer 26-40: Container, Cloud, SE, Wireless, Supply Chain, API, Mobile, Physical, Purple Team, Threat Intel, IR, Zero Trust, Web3, Malware, AI/ML
 
 ```
 LAYER 26 - CONTAINER/K8S:
