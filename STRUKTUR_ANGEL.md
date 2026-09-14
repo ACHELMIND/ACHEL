@@ -4378,41 +4378,276 @@ Rate Limit Bypass → IDOR → Injection → ALERT
 
 ```
 IOS (10):
-├── keychain_dump      — Keychain credential extraction
-├── jailbreak_detect   — Jailbreak detection bypass
-├── ssl_pinning        — SSL pinning bypass
-├── backup_extract     — iTunes backup extraction
-├── plist_dump         — plist file extraction
-├── scheme_abuse       — URL scheme hijacking
-├── webview_attack     — WKWebView/JSBridge exploitation
-├── pasteboard_hijack  — Pasteboard data theft
-├── notification_hijack│ — Notification interception
-└── app_cloning        — App clone with injected code
+
+1. KEYCHAIN_DUMP
+   WHAT: Keychain credential extraction
+   HOW:
+   ├── Access keychain database
+   ├── Decrypt keychain items
+   ├── Extract passwords, tokens
+   └── Use for further access
+   DETECTION: Keychain access
+   BYPASS: Use alternate method
+
+2. JAILBREAK_DETECT
+   WHAT: Jailbreak detection bypass
+   HOW:
+   ├── Identify jailbreak detection methods
+   ├── Bypass file existence checks
+   ├── Bypass URL scheme checks
+   └── Bypass system call checks
+   DETECTION: Jailbreak detection
+   BYPASS: Use alternate method
+
+3. SSL_PINNING
+   WHAT: SSL pinning bypass
+   HOW:
+   ├── Use Frida to hook SSL functions
+   ├── Intercept SSL/TLS connections
+   ├── Modify certificate validation
+   └── Capture traffic
+   DETECTION: SSL pinning bypass
+   BYPASS: Use alternate method
+
+4. BACKUP_EXTRACT
+   WHAT: iTunes backup extraction
+   HOW:
+   ├── Create iTunes backup
+   ├── Extract backup files
+   ├── Decrypt backup
+   └── Extract data
+   DETECTION: Backup extraction
+   BYPASS: Use alternate method
+
+5. PLIST_DUMP
+   WHAT: plist file extraction
+   HOW:
+   ├── Access plist files
+   ├── Extract configuration data
+   ├── Find credentials
+   └── Use for further access
+   DETECTION: Plist access
+   BYPASS: Use alternate method
+
+6. SCHEME_ABUSE
+   WHAT: URL scheme hijacking
+   HOW:
+   ├── Find registered URL schemes
+   ├── Register malicious scheme
+   ├── Intercept URL calls
+   └── Extract data
+   DETECTION: URL scheme monitoring
+   BYPASS: Use alternate method
+
+7. WEBVIEW_ATTACK
+   WHAT: WKWebView/JSBridge exploitation
+   HOW:
+   ├── Find vulnerable WebView
+   ├── Inject malicious JavaScript
+   ├── Access native functions
+   └── Extract data
+   DETECTION: WebView exploitation
+   BYPASS: Use alternate method
+
+8. PASTEBOARD_HIJACK
+   WHAT: Pasteboard data theft
+   HOW:
+   ├── Monitor pasteboard
+   ├── Extract sensitive data
+   ├── Credentials, tokens
+   └── Use for further access
+   DETECTION: Pasteboard monitoring
+   BYPASS: Use alternate method
+
+9. NOTIFICATION_HIJACK
+   WHAT: Notification interception
+   HOW:
+   ├── Register for notifications
+   ├── Intercept notifications
+   ├── Extract content
+   └── Use for further access
+   DETECTION: Notification interception
+   BYPASS: Use alternate method
+
+10. APP_CLONING
+    WHAT: App clone with injected code
+    HOW:
+    ├── Download app IPA
+    ├── Decompile app
+    ├── Inject malicious code
+    ├── Repackage
+    └── Distribute
+    DETECTION: App integrity check
+    BYPASS: Use alternate method
 
 ANDROID (10):
-├── magisk_hide         — Magisk hide bypass
-├── root_detection     — Root detection bypass
-├── ssl_pinning        — SSL pinning bypass
-├── backup_extract     — ADB backup extraction
-├── shared_prefs       — SharedPreferences extraction
-├── intent_hijack      — Intent hijacking
-├── content_provider   — Content Provider abuse
-├── broadcast_hijack   — Broadcast receiver hijacking
-├── accessibility      — AccessibilityService abuse
-└── frida_hook         — Frida dynamic instrumentation
+
+1. MAGISK_HIDE
+   WHAT: Magisk hide bypass
+   HOW:
+   ├── Enable Magisk Hide
+   ├── Hide root from apps
+   ├── Pass safety net
+   └── Access root apps
+   DETECTION: Magisk detection
+   BYPASS: Use alternate method
+
+2. ROOT_DETECTION
+   WHAT: Root detection bypass
+   HOW:
+   ├── Identify root detection methods
+   ├── Bypass file existence checks
+   ├── Bypass binary checks
+   └── Bypass safety net checks
+   DETECTION: Root detection
+   BYPASS: Use alternate method
+
+3. SSL_PINNING
+   WHAT: SSL pinning bypass
+   HOW:
+   ├── Use Frida to hook SSL functions
+   ├── Intercept SSL/TLS connections
+   ├── Modify certificate validation
+   └── Capture traffic
+   DETECTION: SSL pinning bypass
+   BYPASS: Use alternate method
+
+4. BACKUP_EXTRACT
+   WHAT: ADB backup extraction
+   HOW:
+   ├── adb backup -f backup.ab
+   ├── Extract backup
+   ├── Read data
+   └── Extract credentials
+   DETECTION: ADB backup
+   BYPASS: Use alternate method
+
+5. SHARED_PREFS
+   WHAT: SharedPreferences extraction
+   HOW:
+   ├── Access SharedPreferences files
+   ├── Extract XML data
+   ├── Find credentials
+   └── Use for further access
+   DETECTION: SharedPreferences access
+   BYPASS: Use alternate method
+
+6. INTENT_HIJACK
+   WHAT: Intent hijacking
+   HOW:
+   ├── Find exported activities
+   ├── Send malicious intent
+   ├── Intercept data
+   └── Extract credentials
+   DETECTION: Intent monitoring
+   BYPASS: Use alternate method
+
+7. CONTENT_PROVIDER
+   WHAT: Content Provider abuse
+   HOW:
+   ├── Find exported content providers
+   ├── Query content provider
+   ├── Extract data
+   └── Use for further access
+   DETECTION: Content provider access
+   BYPASS: Use alternate method
+
+8. BROADCAST_HIJACK
+   WHAT: Broadcast receiver hijacking
+   HOW:
+   ├── Find registered broadcast receivers
+   ├── Send malicious broadcast
+   ├── Trigger receiver
+   └── Extract data
+   DETECTION: Broadcast monitoring
+   BYPASS: Use alternate method
+
+9. ACCESSIBILITY
+   WHAT: AccessibilityService abuse
+   HOW:
+   ├── Enable accessibility service
+   ├── Intercept user input
+   ├── Capture credentials
+   └── Automate actions
+   DETECTION: Accessibility service
+   BYPASS: Use alternate method
+
+10. FRIDA_HOOK
+    WHAT: Frida dynamic instrumentation
+    HOW:
+    ├── Attach Frida ke app
+    ├── Hook functions
+    ├── Modify behavior
+    └── Extract data
+    DETECTION: Frida detection
+    BYPASS: Use alternate method
 
 UNIVERSAL (6):
-├── certificate_pinning│ — Certificate pinning bypass
-├── binary_analysis    — Binary reverse engineering
-├── memory_dump        — Runtime memory dump
-├── api_intercept      — API call interception
-├── traffic_analysis   — Network traffic analysis
-└── ssl_decrypt        — SSL/TLS decryption
 
-FALLBACK:
+1. CERTIFICATE_PINNING
+   WHAT: Certificate pinning bypass
+   HOW:
+   ├── Use Frida/Objection
+   ├── Hook SSL functions
+   ├── Bypass pinning
+   └── Capture traffic
+   DETECTION: Certificate pinning bypass
+   BYPASS: Use alternate method
+
+2. BINARY_ANALYSIS
+   WHAT: Binary reverse engineering
+   HOW:
+   ├── Decompile binary
+   ├── Analyze code
+   ├── Find vulnerabilities
+   └── Exploit
+   DETECTION: Binary analysis
+   BYPASS: Use alternate method
+
+3. MEMORY_DUMP
+   WHAT: Runtime memory dump
+   HOW:
+   ├── Attach debugger
+   ├── Dump memory
+   ├── Extract secrets
+   └── Analyze
+   DETECTION: Memory dump
+   BYPASS: Use alternate method
+
+4. API_INTERCEPT
+   WHAT: API call interception
+   HOW:
+   ├── Use Frida/Objection
+   ├── Hook API calls
+   ├── Modify requests/responses
+   └── Capture data
+   DETECTION: API interception
+   BYPASS: Use alternate method
+
+5. TRAFFIC_ANALYSIS
+   WHAT: Network traffic analysis
+   HOW:
+   ├── Capture network traffic
+   ├── Analyze protocols
+   ├── Extract credentials
+   └── Find vulnerabilities
+   DETECTION: Traffic analysis
+   BYPASS: Use alternate method
+
+6. SSL_DECRYPT
+   WHAT: SSL/TLS decryption
+   HOW:
+   ├── Use proxy (mitmproxy)
+   ├── Install CA certificate
+   ├── Decrypt traffic
+   └── Analyze
+   DETECTION: SSL decryption
+   BYPASS: Use alternate method
+```
+
+**Fallback:**
 Jailbreak/Root Bypass → SSL Pinning → Keychain/SharedPrefs →
 Backup Extract → WebView Exploit → Frida Hook → ALERT
-```
 
 ---
 
