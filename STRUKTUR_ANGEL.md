@@ -3417,40 +3417,267 @@ CloudTrail → GuardDuty → VPC Flow → ALERT
 
 ```
 PHISHING (8):
-├── email_phish        — Crafted email + malicious attachment
-├── spear_phish        — Targeted email (CEO fraud, BEC)
-├── whaling            — C-level targeting
-├── clone_phish        — Clone legitimate email
-├── vishing            — Voice phishing (call center)
-├── smishing           — SMS phishing
-├── qr_phish           — QR code phishing
-└── phishing_kit       — Pre-built phishing pages
+
+1. EMAIL_PHISH
+   WHAT: Crafted email dengan malicious attachment/link
+   HOW:
+   ├── Create phishing email template
+   ├── Attach malicious document (macro, exploit)
+   ├── Or include phishing link
+   ├── Send to target list
+   └── Harvest credentials atau deliver payload
+   DETECTION: Email security gateway
+   BYPASS: Use alternate method
+
+2. SPEAR_PHISH
+   WHAT: Targeted email ke individu spesifik
+   HOW:
+   ├── Research target (LinkedIn, social media)
+   ├── Create personalized email
+   ├── Reference recent events/projects
+   ├── Include relevant attachments
+   └── Higher success rate
+   DETECTION: Email security gateway
+   BYPASS: Use alternate method
+
+3. WHALING
+   WHAT: Target C-level executives
+   HOW:
+   ├── Research executive (public info)
+   ├── Create urgent email (CEO fraud, wire transfer)
+   ├── Spoof sender address
+   ├── Include time pressure
+   └── High-value target
+   DETECTION: Email security gateway
+   BYPASS: Use alternate method
+
+4. CLONE_PHISH
+   WHAT: Clone legitimate email → replace link/attachment
+   HOW:
+   ├── Intercept legitimate email
+   ├── Clone email content
+   ├── Replace link/attachment dengan malicious
+   ├── Send ke same recipients
+   └── Appears legitimate
+   DETECTION: Email security gateway
+   BYPASS: Use alternate method
+
+5. VISHING
+   WHAT: Voice phishing (phone call)
+   HOW:
+   ├── Spoof caller ID
+   ├── Impersonate IT support/vendor
+   ├── Request credentials or remote access
+   ├── Use social engineering tactics
+   └── Harvest information
+   DETECTION: Call monitoring
+   BYPASS: Use alternate method
+
+6. SMISHING
+   WHAT: SMS phishing
+   HOW:
+   ├── Send SMS dengan malicious link
+   ├── Impersonate bank/company
+   ├── Create urgency
+   ├── Link ke phishing page
+   └── Harvest credentials
+   DETECTION: SMS filtering
+   BYPASS: Use alternate method
+
+7. QR_PHISH
+   WHAT: QR code phishing
+   HOW:
+   ├── Create malicious QR code
+   ├── Link ke phishing page
+   ├── Place QR code di public areas
+   ├── Target scans QR code
+   └── Harvest credentials
+   DETECTION: QR code scanning
+   BYPASS: Use alternate method
+
+8. PHISHING_KIT
+   WHAT: Pre-built phishing pages
+   HOW:
+   ├── Use commercial phishing kit
+   ├── Customize for target
+   ├── Deploy ke hosting
+   ├── Redirect target ke kit
+   └── Harvest credentials
+   DETECTION: Web security gateway
+   BYPASS: Use alternate method
 
 PRETEXTING (5):
-├── helpdesk_imperson  — IT support impersonation
-├── vendor_imperson    — Vendor/partner impersonation
-├── executive_imperson — C-level impersonation
-├── new_employee       — New hire pretext
-└── maintenance        — Maintenance window pretext
+
+1. HELPDESK_IMPERSON
+   WHAT: Impersonate IT support
+   HOW:
+   ├── Call target
+   ├── Claim IT support
+   ├── Request credentials for "verification"
+   ├── Use urgency
+   └── Harvest credentials
+   DETECTION: Call monitoring
+   BYPASS: Use alternate method
+
+2. VENDOR_IMPERSON
+   WHAT: Impersonate vendor/partner
+   HOW:
+   ├── Research vendor relationship
+   ├── Call/email target
+   ├── Claim vendor support
+   ├── Request access/information
+   └── Harvest data
+   DETECTION: Vendor verification
+   BYPASS: Use alternate method
+
+3. EXECUTIVE_IMPERSON
+   WHAT: Impersonate C-level executive
+   HOW:
+   ├── Research executive
+   ├── Send email/call target
+   ├── Claim executive authority
+   ├── Request urgent action
+   └── Harvest data/access
+   DETECTION: Executive verification
+   BYPASS: Use alternate method
+
+4. NEW_EMPLOYEE
+   WHAT: New hire pretext
+   HOW:
+   ├── Claim new employee
+   ├── Request access/onboarding
+   ├── Need credentials for "setup"
+   ├── Harvest credentials
+   └── Access systems
+   DETECTION: HR verification
+   BYPASS: Use alternate method
+
+5. MAINTENANCE
+   WHAT: Maintenance window pretext
+   HOW:
+   ├── Claim maintenance window
+   ├── Need to verify credentials
+   ├── Request access for "maintenance"
+   ├── Harvest credentials
+   └── Access systems
+   DETECTION: Maintenance verification
+   BYPASS: Use alternate method
 
 OSINT_FOR_SE (6):
-├── social_media       — LinkedIn, Facebook, Instagram recon
-├── email_harvest      — Email collection from public sources
-├── phone_harvest      — Phone number collection
-├── org_chart          — Organization structure mapping
-├── tech_stack         — Technology stack identification
-└── vendor_recon       — Vendor/partner reconnaissance
+
+1. SOCIAL_MEDIA
+   WHAT: LinkedIn, Facebook, Instagram recon
+   HOW:
+   ├── Scrape LinkedIn profiles
+   ├── Find organizational structure
+   ├── Identify email patterns
+   ├── Gather personal information
+   └── Use for targeted attacks
+   DETECTION: Social media monitoring
+   BYPASS: Use alternate method
+
+2. EMAIL_HARVEST
+   WHAT: Email collection dari public sources
+   HOW:
+   ├── Scrape company website
+   ├── Check email format (first.last@domain)
+   ├── Verify emails (hunter.io)
+   └── Build target list
+   DETECTION: Email harvesting detection
+   BYPASS: Use alternate method
+
+3. PHONE_HARVEST
+   WHAT: Phone number collection
+   HOW:
+   ├── Scrape company website
+   ├── Check social media profiles
+   ├── Build phone list
+   └── Use for vishing
+   DETECTION: Phone number monitoring
+   BYPASS: Use alternate method
+
+4. ORG_CHART
+   WHAT: Organization structure mapping
+   HOW:
+   ├── LinkedIn research
+   ├── Company website
+   ├── Press releases
+   ├── Identify key personnel
+   └── Map reporting structure
+   DETECTION: Org chart monitoring
+   BYPASS: Use alternate method
+
+5. TECH_STACK
+   WHAT: Technology stack identification
+   HOW:
+   ├── Shodan/Censys research
+   ├── Job postings (list technologies)
+   ├── GitHub repositories
+   ├── Identify vulnerable technologies
+   └── Target specific vulnerabilities
+   DETECTION: Technology monitoring
+   BYPASS: Use alternate method
+
+6. VENDOR_RECON
+   WHAT: Vendor/partner reconnaissance
+   HOW:
+   ├── Research vendor relationships
+   ├── Identify vendor contacts
+   ├── Find vendor vulnerabilities
+   ├── Use for supply chain attacks
+   └── Impersonate vendor
+   DETECTION: Vendor monitoring
+   BYPASS: Use alternate method
 
 CAMPAIGN (4):
-├── gophish_integrate  — GoPhish integration
-├── campaign_track     — Campaign tracking (opens, clicks)
-├── credential_harvest — Credential capture
-└── payload_delivery   — Payload delivery via phishing
 
-FALLBACK:
+1. GOPHISH_INTEGRATE
+   WHAT: GoPhish integration
+   HOW:
+   ├── Import target list ke GoPhish
+   ├── Create phishing campaign
+   ├── Configure email templates
+   ├── Track results
+   └── Harvest credentials
+   DETECTION: Email security gateway
+   BYPASS: Use alternate method
+
+2. CAMPAIGN_TRACK
+   WHAT: Campaign tracking (opens, clicks)
+   HOW:
+   ├── Track email opens
+   ├── Track link clicks
+   ├── Track credential submissions
+   ├── Generate report
+   └── Measure success
+   DETECTION: Tracking pixels
+   BYPASS: Use alternate method
+
+3. CREDENTIAL_HARVEST
+   WHAT: Credential capture
+   HOW:
+   ├── Deploy phishing page
+   ├── Capture submitted credentials
+   ├── Store ke database
+   └── Use for further access
+   DETECTION: Credential monitoring
+   BYPASS: Use alternate method
+
+4. PAYLOAD_DELIVERY
+   WHAT: Payload delivery via phishing
+   HOW:
+   ├── Attach malicious document
+   ├── Include macro/exploit
+   ├── Target opens document
+   ├── Macro/exploit executes
+   └── Payload delivered
+   DETECTION: Email security gateway
+   BYPASS: Use alternate method
+```
+
+**Fallback:**
 Email Phish → Spear Phish → Vishing → Smishing → QR Phish →
 Pretexting → Physical Access → ALERT
-```
 
 ---
 
