@@ -4655,40 +4655,235 @@ Backup Extract → WebView Exploit → Frida Hook → ALERT
 
 ```
 USB_ATTACKS (5):
-├── usb_drop           — Malicious USB drop
-├── usb_hider          — USB HID attack (Rubber Ducky)
-├── usb_storage        — USB with autorun payload
-├── usb_wifi_squirrel  — WiFi credential theft
-└── usb_badusb         — BadUSB firmware attack
+
+1. USB_DROP
+   WHAT: Malicious USB drop
+   HOW:
+   ├── Create malicious USB
+   ├── Label USB诱惑 (e.g., "Salary Q4 2024")
+   ├── Drop di public area
+   ├── Victim plugs USB
+   └── Payload executes
+   DETECTION: USB device monitoring
+   BYPASS: Use alternate method
+
+2. USB_HIDER
+   WHAT: USB HID attack (Rubber Ducky)
+   HOW:
+   ├── Program Rubber Ducky
+   ├── Create keystroke payload
+   ├── Plug ke computer
+   ├── Ducky executes keystrokes
+   └── Payload delivered
+   DETECTION: HID device monitoring
+   BYPASS: Use alternate method
+
+3. USB_STORAGE
+   WHAT: USB with autorun payload
+   HOW:
+   ├── Create USB dengan autorun.inf
+   ├── Include malicious executable
+   ├── Victim plugs USB
+   ├── Autorun executes
+   └── Payload delivered
+   DETECTION: Autorun monitoring
+   BYPASS: Use alternate method
+
+4. USB_WIFI_SQUIRREL
+   WHAT: WiFi credential theft
+   HOW:
+   ├── Program WiFi Squirrel
+   ├── Create credential harvesting payload
+   ├── Plug ke computer
+   ├── Harvest WiFi credentials
+   └── Exfiltrate data
+   DETECTION: USB device monitoring
+   BYPASS: Use alternate method
+
+5. USB_BADUSB
+   WHAT: BadUSB firmware attack
+   HOW:
+   ├── Reprogram USB firmware
+   ├── USB appears as keyboard
+   ├── Execute keystrokes
+   └── Payload delivered
+   DETECTION: Firmware monitoring
+   BYPASS: Use alternate method
 
 LOCK_PICKING (4):
-├── pin_tumbler        — Pin tumbler picking
-├── bump_key           — Bump key attack
-├── bypass_tool        — Bypass tool (shove knife)
-└── combination_lock   — Combination lock bypass
+
+1. PIN_TUMBLER
+   WHAT: Pin tumbler picking
+   HOW:
+   ├── Insert tension wrench
+   ├── Insert pick
+   ├── Feel pins setting
+   ├── Rotate plug
+   └── Lock opened
+   DETECTION: Lock manipulation detection
+   BYPASS: Use alternate method
+
+2. BUMP_KEY
+   WHAT: Bump key attack
+   HOW:
+   ├── Use bump key
+   ├── Insert ke lock
+   ├── Tap with hammer
+   ├── Pins jump
+   └── Lock opened
+   DETECTION: Bump key detection
+   BYPASS: Use alternate method
+
+3. BYPASS_TOOL
+   WHAT: Bypass tool (shove knife)
+   HOW:
+   ├── Use bypass tool
+   ├── Insert ke door frame
+   ├── Latch bypassed
+   └── Door opened
+   DETECTION: Door sensor
+   BYPASS: Use alternate method
+
+4. COMBINATION_LOCK
+   WHAT: Combination lock bypass
+   HOW:
+   ├── Feel tumblers
+   ├── Decode combination
+   ├── Open lock
+   └── Access secured area
+   DETECTION: Lock manipulation detection
+   BYPASS: Use alternate method
 
 BADGE_CLONE (3):
-├── rfid_clone         — Proxmark3 badge clone
-├── rfid_emulate       — Badge emulation
-└── tailgating         — Tailgating/piggybacking
+
+1. RFID_CLONE
+   WHAT: Proxmark3 badge clone
+   HOW:
+   ├── Read badge dengan Proxmark3
+   ├── Extract badge data
+   ├── Write to blank badge
+   └── Use cloned badge
+   DETECTION: RFID cloning detection
+   BYPASS: Use alternate method
+
+2. RFID_EMULATE
+   WHAT: Badge emulation
+   HOW:
+   ├── Read badge data
+   ├── Load ke Proxmark3
+   ├── Emulate badge
+   └── Use emulated badge
+   DETECTION: RFID emulation detection
+   BYPASS: Use alternate method
+
+3. TAILGATING
+   WHAT: Tailgating/piggybacking
+   HOW:
+   ├── Follow authorized person
+   ├── Enter secured area
+   ├── Access systems
+   └── Data extraction
+   DETECTION: Tailgating detection
+   BYPASS: Use alternate method
 
 PHYSICAL_ENUM (4):
-├── wifi_pineapple     — Rogue AP deployment
-├── network_tap        — Physical network tap
-├── lock_wire          — Lock wire attack
-└── desk_spy           — Desk/cubicle reconnaissance
+
+1. WIFI_PINEAPPLE
+   WHAT: Rogue AP deployment
+   HOW:
+   ├── Deploy WiFi Pineapple
+   ├── Create rogue AP
+   ├── Capture credentials
+   └── MITM traffic
+   DETECTION: Rogue AP detection
+   BYPASS: Use alternate method
+
+2. NETWORK_TAP
+   WHAT: Physical network tap
+   HOW:
+   ├── Install network tap
+   ├── Capture network traffic
+   ├── Extract credentials
+   └── Analyze traffic
+   DETECTION: Network tap detection
+   BYPASS: Use alternate method
+
+3. LOCK_WIRE
+   WHAT: Lock wire attack
+   HOW:
+   ├── Use lock wire
+   ├── Bypass lock mechanism
+   ├── Access secured area
+   └── Data extraction
+   DETECTION: Lock manipulation detection
+   BYPASS: Use alternate method
+
+4. DESK_SPY
+   WHAT: Desk/cubicle reconnaissance
+   HOW:
+   ├── Observe desk area
+   ├── Find sticky notes
+   ├── Find documents
+   └── Extract credentials
+   DETECTION: Physical surveillance detection
+   BYPASS: Use alternate method
 
 TOOLS (5):
-├── proxmark3          — RFID/NFC
-├── lock_pick_set      — Lock picking
-├── rubber_ducky       — USB HID
-├── bash_bunny         — USB attack
-└── WiFi_Pineapple     — WiFi attack
 
-FALLBACK:
+1. PROXMARK3
+   WHAT: RFID/NFC tool
+   HOW:
+   ├── Read RFID/NFC tags
+   ├── Clone tags
+   ├── Emulate tags
+   └── Relay attacks
+   DETECTION: Proxmark3 usage
+   BYPASS: Use alternate tool
+
+2. LOCK_PICK_SET
+   WHAT: Lock picking
+   HOW:
+   ├── Tension wrench
+   ├── Various picks
+   ├── Manipulate pins
+   └── Open lock
+   DETECTION: Lock picking detection
+   BYPASS: Use alternate tool
+
+3. RUBBER_DUCKY
+   WHAT: USB HID
+   HOW:
+   ├── Program payload
+   ├── Plug ke computer
+   ├── Execute keystrokes
+   └── Payload delivered
+   DETECTION: HID device monitoring
+   BYPASS: Use alternate tool
+
+4. BASH_BUNNY
+   WHAT: USB attack
+   HOW:
+   ├── Program payload
+   ├── Plug ke computer
+   ├── Execute attack
+   └── Payload delivered
+   DETECTION: USB device monitoring
+   BYPASS: Use alternate tool
+
+5. WIFI_PINEAPPLE
+   WHAT: WiFi attack
+   HOW:
+   ├── Deploy WiFi Pineapple
+   ├── Create rogue AP
+   ├── Capture credentials
+   └── MITM traffic
+   DETECTION: Rogue AP detection
+   BYPASS: Use alternate tool
+```
+
+**Fallback:**
 USB Drop → Badge Clone → Tailgating → Lock Picking →
 Network Tap → WiFi Rogue AP → ALERT
-```
 
 ---
 
