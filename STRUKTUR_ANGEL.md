@@ -5837,34 +5837,231 @@ Micro-seg Bypass → DLP Bypass → Tunnel Exfil → ALERT
 
 ```
 SMART_CONTRACT (8):
-├── reentrancy         — Reentrancy attack
-├── overflow           — Integer overflow/underflow
-├── front_run          — Front-running (MEV)
-├── flash_loan         — Flash loan attack
-├── oracle_manip       — Oracle manipulation
-├── access_control     — Access control bypass
-├── proxy_upgrade      — Proxy upgrade attack
-└── signature_abuse    — Signature replay/abuse
+
+1. REENTRANCY
+   WHAT: Reentrancy attack
+   HOW:
+   ├── Identify vulnerable contract
+   ├── Create malicious contract
+   ├── Call withdraw function
+   ├── Callback ke malicious contract
+   └── Drain funds before balance update
+   DETECTION: Reentrancy monitoring
+   BYPASS: Use alternate method
+
+2. OVERFLOW
+   WHAT: Integer overflow/underflow
+   HOW:
+   ├── Identify arithmetic operations
+   ├── Craft overflow/underflow input
+   ├── Bypass checks
+   └── Manipulate balances
+   DETECTION: Overflow monitoring
+   BYPASS: Use alternate method
+
+3. FRONT_RUN
+   WHAT: Front-running (MEV)
+   HOW:
+   ├── Monitor mempool
+   ├── Identify pending tx
+   ├── Submit higher gas tx
+   └── Execute before victim
+   DETECTION: MEV monitoring
+   BYPASS: Use alternate method
+
+4. FLASH_LOAN
+   WHAT: Flash loan attack
+   HOW:
+   ├── Borrow via flash loan
+   ├── Manipulate price oracle
+   ├── Exploit price difference
+   └── Repay loan + profit
+   DETECTION: Flash loan monitoring
+   BYPASS: Use alternate method
+
+5. ORACLE_MANIP
+   WHAT: Oracle manipulation
+   HOW:
+   ├── Identify oracle source
+   ├── Manipulate oracle data
+   ├── Exploit price impact
+   └── Profit from manipulation
+   DETECTION: Oracle monitoring
+   BYPASS: Use alternate method
+
+6. ACCESS_CONTROL
+   WHAT: Access control bypass
+   HOW:
+   ├── Identify access control flaws
+   ├── Find unprotected function
+   ├── Call privileged function
+   └── Gain unauthorized access
+   DETECTION: Access control monitoring
+   BYPASS: Use alternate method
+
+7. PROXY_UPGRADE
+   WHAT: Proxy upgrade attack
+   HOW:
+   ├── Identify proxy pattern
+   ├── Find upgrade vulnerability
+   ├── Inject malicious implementation
+   └── Gain control
+   DETECTION: Proxy upgrade monitoring
+   BYPASS: Use alternate method
+
+8. SIGNATURE_ABUSE
+   WHAT: Signature replay/abuse
+   HOW:
+   ├── Capture valid signature
+   ├── Replay signature
+   ├── Bypass nonce check
+   └── Execute unauthorized tx
+   DETECTION: Signature monitoring
+   BYPASS: Use alternate method
 
 DEFI_EXPLOIT (6):
-├── liquidity_drain    — Liquidity pool drain
-├── price_manip        — Price manipulation
-├── yield_farm         — Yield farming exploit
-├── governance_attack  — Governance attack
-├── bridge_exploit     — Cross-chain bridge exploit
-└── lending_exploit    — Lending protocol exploit
+
+1. LIQUIDITY_DRAIN
+   WHAT: Liquidity pool drain
+   HOW:
+   ├── Identify liquidity pool
+   ├── Find vulnerability
+   ├── Exploit vulnerability
+   └── Drain pool funds
+   DETECTION: Liquidity monitoring
+   BYPASS: Use alternate method
+
+2. PRICE_MANIP
+   WHAT: Price manipulation
+   HOW:
+   ├── Identify price mechanism
+   ├── Manipulate price
+   ├── Exploit price impact
+   └── Profit from manipulation
+   DETECTION: Price monitoring
+   BYPASS: Use alternate method
+
+3. YIELD_FARM
+   WHAT: Yield farming exploit
+   HOW:
+   ├── Identify yield farm
+   ├── Find vulnerability
+   ├── Exploit vulnerability
+   └── Drain rewards
+   DETECTION: Yield monitoring
+   BYPASS: Use alternate method
+
+4. GOVERNANCE_ATTACK
+   WHAT: Governance attack
+   HOW:
+   ├── Acquire governance tokens
+   ├── Propose malicious proposal
+   ├── Pass proposal
+   └── Execute malicious action
+   DETECTION: Governance monitoring
+   BYPASS: Use alternate method
+
+5. BRIDGE_EXPLOIT
+   WHAT: Cross-chain bridge exploit
+   HOW:
+   ├── Identify bridge vulnerability
+   ├── Craft malicious tx
+   ├── Exploit bridge
+   └── Drain bridge funds
+   DETECTION: Bridge monitoring
+   BYPASS: Use alternate method
+
+6. LENDING_EXPLOIT
+   WHAT: Lending protocol exploit
+   HOW:
+   ├── Identify lending vulnerability
+   ├── Manipulate collateral
+   ├── Exploit vulnerability
+   └── Drain protocol
+   DETECTION: Lending monitoring
+   BYPASS: Use alternate method
 
 WALLET_ATTACK (5):
-├── seed_phrase        — Seed phrase theft
-├── private_key        — Private key extraction
-├── approval_abuse     — Token approval abuse
-├── permit_sign        — Permit signature abuse
-└── wallet_connect     — WalletConnect hijack
+
+1. SEED_PHRASE
+   WHAT: Seed phrase theft
+   HOW:
+   ├── Create phishing site
+   ├── Trick victim ke enter seed
+   ├── Capture seed phrase
+   └── Import ke attacker wallet
+   DETECTION: Phishing detection
+   BYPASS: Use alternate method
+
+2. PRIVATE_KEY
+   WHAT: Private key extraction
+   HOW:
+   ├── Access wallet file
+   ├── Extract encrypted key
+   ├── Brute force password
+   └── Import ke attacker wallet
+   DETECTION: Key extraction monitoring
+   BYPASS: Use alternate method
+
+3. APPROVAL_ABUSE
+   WHAT: Token approval abuse
+   HOW:
+   ├── Trick victim ke approve
+   ├── Use approval ke transfer
+   └── Drain tokens
+   DETECTION: Approval monitoring
+   BYPASS: Use alternate method
+
+4. PERMIT_SIGN
+   WHAT: Permit signature abuse
+   HOW:
+   ├── Trick victim ke sign permit
+   ├── Use permit ke transfer
+   └── Drain tokens
+   DETECTION: Permit monitoring
+   BYPASS: Use alternate method
+
+5. WALLET_CONNECT
+   WHAT: WalletConnect hijack
+   HOW:
+   ├── Hijack WalletConnect session
+   ├── Intercept connection
+   ├── Drain funds
+   └── Use session ke access wallet
+   DETECTION: WalletConnect monitoring
+   BYPASS: Use alternate method
 
 NFT_EXPLOIT (3):
-├── metadata_manip     — Metadata manipulation
-├── rarity_manip       — Rarity manipulation
-├── royalty_bypass     — Royalty bypass
+
+1. METADATA_MANIP
+   WHAT: Metadata manipulation
+   HOW:
+   ├── Identify metadata storage
+   ├── Modify metadata
+   ├── Change NFT properties
+   └── Profit from manipulation
+   DETECTION: Metadata monitoring
+   BYPASS: Use alternate method
+
+2. RARITY_MANIP
+   WHAT: Rarity manipulation
+   HOW:
+   ├── Identify rarity calculation
+   ├── Manipulate traits
+   ├── Change rarity score
+   └── Profit from manipulation
+   DETECTION: Rarity monitoring
+   BYPASS: Use alternate method
+
+3. ROYALTY_BYPASS
+   WHAT: Royalty bypass
+   HOW:
+   ├── Identify royalty mechanism
+   ├── Find bypass vector
+   ├── Execute trade without royalty
+   └── Bypass royalty payment
+   DETECTION: Royalty monitoring
+   BYPASS: Use alternate method
 
 FALLBACK:
 Reentrancy → Flash Loan → Oracle Manip → Front Run →
@@ -5877,39 +6074,237 @@ Access Control → Proxy Upgrade → Bridge Exploit → ALERT
 
 ```
 STATIC_ANALYSIS (6):
-├── pe_analysis        — PE header analysis
-├── elf_analysis       — ELF header analysis
-├── import_hash        — Import hash (imphash)
-├── string_extract     — String extraction
-├── packer_detect      — Packer detection
-└── yara_scan          — YARA rule scanning
+
+1. PE_ANALYSIS
+   WHAT: PE header analysis
+   HOW:
+   ├── Load PE file
+   ├── Parse PE header
+   ├── Extract sections, imports, exports
+   └── Identify suspicious indicators
+   DETECTION: PE analysis
+   BYPASS: Use alternate method
+
+2. ELF_ANALYSIS
+   WHAT: ELF header analysis
+   HOW:
+   ├── Load ELF file
+   ├── Parse ELF header
+   ├── Extract sections, symbols
+   └── Identify suspicious indicators
+   DETECTION: ELF analysis
+   BYPASS: Use alternate method
+
+3. IMPORT_HASH
+   WHAT: Import hash (imphash)
+   HOW:
+   ├── Extract import table
+   ├── Calculate hash
+   ├── Compare ke known hashes
+   └── Identify malware family
+   DETECTION: Import hash analysis
+   BYPASS: Use alternate method
+
+4. STRING_EXTRACT
+   WHAT: String extraction
+   HOW:
+   ├── Extract printable strings
+   ├── Analyze URLs, IPs, paths
+   ├── Find C2 indicators
+   └── Identify capabilities
+   DETECTION: String analysis
+   BYPASS: Use alternate method
+
+5. PACKER_DETECT
+   WHAT: Packer detection
+   HOW:
+   ├── Analyze PE structure
+   ├── Identify packer signatures
+   ├── Determine packer type
+   └── Plan unpacking strategy
+   DETECTION: Packer detection
+   BYPASS: Use alternate method
+
+6. YARA_SCAN
+   WHAT: YARA rule scanning
+   HOW:
+   ├── Load YARA rules
+   ├── Scan sample
+   ├── Match rules
+   └── Identify malware family
+   DETECTION: YARA scanning
+   BYPASS: Use alternate method
 
 DYNAMIC_ANALYSIS (6):
-├── sandbox_run        — Sandbox execution
-├── api_monitor        — API call monitoring
-├── network_capture    — Network traffic capture
-├── registry_monitor   — Registry change monitoring
-├── file_monitor       — File system change monitoring
-└── memory_forensic    — Memory forensics
+
+1. SANDBOX_RUN
+   WHAT: Sandbox execution
+   HOW:
+   ├── Submit ke sandbox
+   ├── Execute sample
+   ├── Monitor behavior
+   └── Generate report
+   DETECTION: Sandbox execution
+   BYPASS: Use alternate method
+
+2. API_MONITOR
+   WHAT: API call monitoring
+   HOW:
+   ├── Hook API calls
+   ├── Monitor function calls
+   ├── Log parameters
+   └── Analyze behavior
+   DETECTION: API monitoring
+   BYPASS: Use alternate method
+
+3. NETWORK_CAPTURE
+   WHAT: Network traffic capture
+   HOW:
+   ├── Capture network traffic
+   ├── Analyze protocols
+   ├── Extract C2 communication
+   └── Identify infrastructure
+   DETECTION: Network capture
+   BYPASS: Use alternate method
+
+4. REGISTRY_MONITOR
+   WHAT: Registry change monitoring
+   HOW:
+   ├── Snapshot registry
+   ├── Execute sample
+   ├── Compare registry
+   └── Identify changes
+   DETECTION: Registry monitoring
+   BYPASS: Use alternate method
+
+5. FILE_MONITOR
+   WHAT: File system change monitoring
+   HOW:
+   ├── Snapshot file system
+   ├── Execute sample
+   ├── Compare file system
+   └── Identify changes
+   DETECTION: File monitoring
+   BYPASS: Use alternate method
+
+6. MEMORY_FORENSIC
+   WHAT: Memory forensics
+   HOW:
+   ├── Dump process memory
+   ├── Analyze memory
+   ├── Extract artifacts
+   └── Identify malicious activity
+   DETECTION: Memory forensics
+   BYPASS: Use alternate method
 
 UNPACKING (5):
-├── upx_unpack         — UPX unpacking
-├── custom_unpack      — Custom packer unpacking
-├── debug_unpack       — Debug-based unpacking
-├── emulation_unpack   — Emulation-based unpacking
-└── dynamic_unpack     — Runtime unpacking
+
+1. UPX_UNPACK
+   WHAT: UPX unpacking
+   HOW:
+   ├── Detect UPX packer
+   ├── Use UPX utility
+   ├── Unpack binary
+   └── Analyze unpacked
+   DETECTION: UPX unpacking
+   BYPASS: Use alternate method
+
+2. CUSTOM_UNPACK
+   WHAT: Custom packer unpacking
+   HOW:
+   ├── Analyze packer
+   ├── Write unpacking script
+   ├── Unpack binary
+   └── Analyze unpacked
+   DETECTION: Custom unpacking
+   BYPASS: Use alternate method
+
+3. DEBUG_UNPACK
+   WHAT: Debug-based unpacking
+   HOW:
+   ├── Load ke debugger
+   ├── Set breakpoint ke OEP
+   ├── Run ke breakpoint
+   └── Dump unpacked binary
+   DETECTION: Debug-based unpacking
+   BYPASS: Use alternate method
+
+4. EMULATION_UNPACK
+   WHAT: Emulation-based unpacking
+   HOW:
+   ├── Use emulator (e.g., Unicorn)
+   ├── Emulate unpacking code
+   ├── Extract unpacked binary
+   └── Analyze
+   DETECTION: Emulation-based unpacking
+   BYPASS: Use alternate method
+
+5. DYNAMIC_UNPACK
+   WHAT: Runtime unpacking
+   HOW:
+   ├── Execute packed binary
+   ├── Wait for unpacking
+   ├── Dump from memory
+   └── Analyze dumped binary
+   DETECTION: Dynamic unpacking
+   BYPASS: Use alternate method
 
 EVASION_ANALYSIS (5):
-├── anti_debug_detect  — Anti-debug technique detection
-├── anti_vm_detect     — Anti-VM technique detection
-├── anti_sandbox_detect│ — Anti-sandbox detection
-├── timing_evasion     — Timing-based evasion
-└── environment_check  — Environment check analysis
 
-FALLBACK:
+1. ANTI_DEBUG_DETECT
+   WHAT: Anti-debug technique detection
+   HOW:
+   ├── Identify debug checks
+   ├── Bypass IsDebuggerPresent
+   ├── Bypass NtQueryInformationProcess
+   └── Continue analysis
+   DETECTION: Anti-debug detection
+   BYPASS: Use alternate method
+
+2. ANTI_VM_DETECT
+   WHAT: Anti-VM technique detection
+   HOW:
+   ├── Identify VM checks
+   ├── Bypass registry checks
+   ├── Bypass hardware checks
+   └── Continue analysis
+   DETECTION: Anti-VM detection
+   BYPASS: Use alternate method
+
+3. ANTI_SANDBOX_DETECT
+   WHAT: Anti-sandbox detection
+   HOW:
+   ├── Identify sandbox checks
+   ├── Bypass timing checks
+   ├── Bypass artifact checks
+   └── Continue analysis
+   DETECTION: Anti-sandbox detection
+   BYPASS: Use alternate method
+
+4. TIMING_EVASION
+   WHAT: Timing-based evasion
+   HOW:
+   ├── Identify timing checks
+   ├── Patch timing calls
+   ├── Bypass sleep checks
+   └── Continue analysis
+   DETECTION: Timing evasion detection
+   BYPASS: Use alternate method
+
+5. ENVIRONMENT_CHECK
+   WHAT: Environment check analysis
+   HOW:
+   ├── Identify environment checks
+   ├── Document checks
+   ├── Plan bypass strategy
+   └── Continue analysis
+   DETECTION: Environment check detection
+   BYPASS: Use alternate method
+```
+
+**Fallback:**
 Static Analysis → YARA Scan → Dynamic Analysis → API Monitor →
 Network Capture → Memory Forensic → Unpack → Report
-```
 
 ---
 
@@ -5917,38 +6312,226 @@ Network Capture → Memory Forensic → Unpack → Report
 
 ```
 MODEL_ATTACKS (6):
-├── model_steal        — Model extraction (query-based)
-├── model_poison       — Training data poisoning
-├── model_evasion      — Adversarial examples
-├── model_inversion    — Model inversion (data recovery)
-├── membership_infer   — Membership inference
-└── backdoor_insert    — Backdoor insertion
+
+1. MODEL_STEAL
+   WHAT: Model extraction (query-based)
+   HOW:
+   ├── Query model repeatedly
+   ├── Collect input/output pairs
+   ├── Train surrogate model
+   └── Replicate functionality
+   DETECTION: Query monitoring
+   BYPASS: Use alternate method
+
+2. MODEL_POISON
+   WHAT: Training data poisoning
+   HOW:
+   ├── Inject malicious data ke training
+   ├── Manipulate model behavior
+   ├── Create backdoor
+   └── Trigger malicious output
+   DETECTION: Data validation
+   BYPASS: Use alternate method
+
+3. MODEL_EVASION
+   WHAT: Adversarial examples
+   HOW:
+   ├── Craft adversarial input
+   ├── Add perturbation
+   ├── Bypass classification
+   └── Cause misclassification
+   DETECTION: Adversarial detection
+   BYPASS: Use alternate method
+
+4. MODEL_INVERSION
+   WHAT: Model inversion (data recovery)
+   HOW:
+   ├── Query model
+   ├── Reconstruct training data
+   ├── Extract sensitive information
+   └── Privacy violation
+   DETECTION: Inversion detection
+   BYPASS: Use alternate method
+
+5. MEMBERSHIP_INFER
+   WHAT: Membership inference
+   HOW:
+   ├── Query model
+   ├── Analyze confidence scores
+   ├── Determine if data was in training
+   └── Privacy violation
+   DETECTION: Membership inference detection
+   BYPASS: Use alternate method
+
+6. BACKDOOR_INSERT
+   WHAT: Backdoor insertion
+   HOW:
+   ├── Inject trigger ke training data
+   ├── Train model dengan backdoor
+   ├── Activate trigger ke cause output
+   └── Hidden functionality
+   DETECTION: Backdoor detection
+   BYPASS: Use alternate method
 
 PROMPT_INJECTION (5):
-├── direct_injection   — Direct prompt injection
-├── indirect_injection │ — Indirect (via document/URL)
-├── jailbreak          — LLM jailbreaking
-├── data_exfil         — Data exfiltration via LLM
-└── tool_abuse         — LLM tool abuse
+
+1. DIRECT_INJECTION
+   WHAT: Direct prompt injection
+   HOW:
+   ├── Craft malicious prompt
+   ├── Override system instructions
+   ├── Extract hidden information
+   └── Manipulate output
+   DETECTION: Prompt injection detection
+   BYPASS: Use alternate method
+
+2. INDIRECT_INJECTION
+   WHAT: Indirect (via document/URL)
+   HOW:
+   ├── Inject malicious content ke document
+   ├── LLM processes document
+   ├── Malicious instruction executed
+   └── Data exfiltration
+   DETECTION: Indirect injection detection
+   BYPASS: Use alternate method
+
+3. JAILBREAK
+   WHAT: LLM jailbreaking
+   HOW:
+   ├── Craft jailbreak prompt
+   ├── Bypass safety guardrails
+   ├── Generate restricted content
+   └── Bypass content policy
+   DETECTION: Jailbreak detection
+   BYPASS: Use alternate method
+
+4. DATA_EXFIL
+   WHAT: Data exfiltration via LLM
+   HOW:
+   ├── Trick LLM ke leak training data
+   ├── Extract sensitive information
+   ├── Use LLM as exfil channel
+   └── Data theft
+   DETECTION: Data exfiltration detection
+   BYPASS: Use alternate method
+
+5. TOOL_ABUSE
+   WHAT: LLM tool abuse
+   HOW:
+   ├── Trick LLM ke use tool maliciously
+   ├── Execute unauthorized action
+   ├── Access restricted resources
+   └── Cause damage
+   DETECTION: Tool abuse detection
+   BYPASS: Use alternate method
 
 AI_INFRASTRUCTURE (5):
-├── api_abuse          — AI API abuse
-├── training_data      — Training data poisoning
-├── model_service      — Model service exploitation
-├── vector_db          — Vector database attack
-└── embedding_poison   — Embedding poisoning
+
+1. API_ABUSE
+   WHAT: AI API abuse
+   HOW:
+   ├── Identify AI API endpoints
+   ├── Abuse API functionality
+   ├── Extract data
+   └── Cause damage
+   DETECTION: API abuse detection
+   BYPASS: Use alternate method
+
+2. TRAINING_DATA
+   WHAT: Training data poisoning
+   HOW:
+   ├── Inject malicious data
+   ├── Manipulate training process
+   ├── Create backdoor
+   └── Compromise model
+   DETECTION: Training data validation
+   BYPASS: Use alternate method
+
+3. MODEL_SERVICE
+   WHAT: Model service exploitation
+   HOW:
+   ├── Identify model service
+   ├── Find vulnerability
+   ├── Exploit vulnerability
+   └── Compromise service
+   DETECTION: Model service monitoring
+   BYPASS: Use alternate method
+
+4. VECTOR_DB
+   WHAT: Vector database attack
+   HOW:
+   ├── Identify vector database
+   ├── Inject malicious embeddings
+   ├── Manipulate search results
+   └── Compromise RAG system
+   DETECTION: Vector database monitoring
+   BYPASS: Use alternate method
+
+5. EMBEDDING_POISON
+   WHAT: Embedding poisoning
+   HOW:
+   ├── Inject poisoned embeddings
+   ├── Manipulate similarity search
+   ├── Redirect retrieval
+   └── Compromise system
+   DETECTION: Embedding validation
+   BYPASS: Use alternate method
 
 AI_SAFETY_BYPASS (5):
-├── content_filter     — Content filter bypass
-├── safety_training    — Safety training bypass
-├── alignment_break    — Alignment break
-├── hallucination_exp  — Hallucination exploitation
-└── bias_exploit       — Bias exploitation
+
+1. CONTENT_FILTER
+   WHAT: Content filter bypass
+   HOW:
+   ├── Identify content filter
+   ├── Craft bypass input
+   ├── Bypass filter
+   └── Generate restricted content
+   DETECTION: Content filter bypass detection
+   BYPASS: Use alternate method
+
+2. SAFETY_TRAINING
+   WHAT: Safety training bypass
+   HOW:
+   ├── Identify safety measures
+   ├── Find bypass vector
+   ├── Bypass safety training
+   └── Generate harmful output
+   DETECTION: Safety bypass detection
+   BYPASS: Use alternate method
+
+3. ALIGNMENT_BREAK
+   WHAT: Alignment break
+   HOW:
+   ├── Craft adversarial input
+   ├── Break model alignment
+   ├── Cause unintended behavior
+   └── Bypass safety measures
+   DETECTION: Alignment monitoring
+   BYPASS: Use alternate method
+
+4. HALLUCINATION_EXP
+   WHAT: Hallucination exploitation
+   HOW:
+   ├── Trigger hallucination
+   ├── Extract false information
+   ├── Use for social engineering
+   └── Cause confusion
+   DETECTION: Hallucination detection
+   BYPASS: Use alternate method
+
+5. BIAS_EXPLOIT
+   WHAT: Bias exploitation
+   HOW:
+   ├── Identify model bias
+   ├── Exploit bias
+   ├── Manipulate output
+   └── Cause harm
+   DETECTION: Bias monitoring
+   BYPASS: Use alternate method
 
 FALLBACK:
 Model Steal → Adversarial Example → Prompt Injection →
 Data Poison → Jailbreak → API Abuse → Safety Bypass → ALERT
-```
 
 ---
 
