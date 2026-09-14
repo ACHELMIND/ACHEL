@@ -3928,28 +3928,229 @@ Captive Portal → Bluetooth → RFID/NFC → ALERT
 
 ```
 DEPENDENCY (6):
-├── npm_poison         — Malicious npm package
-├── pypi_poison        — Malicious PyPI package
-├── go_module          — Malicious Go module
-├── ruby_gem           — Malicious Ruby gem
-├── maven              — Malicious Maven artifact
-└── nuget              — Malicious NuGet package
+
+1. NPM_POISON
+   WHAT: Malicious npm package
+   HOW:
+   ├── Create malicious package
+   ├── Name similarity (typosquatting)
+   ├── Publish ke npm registry
+   ├── Users install package
+   └── Backdoor executes
+   DETECTION: npm audit, dependency scanning
+   BYPASS: Use alternate method
+
+2. PYPI_POISON
+   WHAT: Malicious PyPI package
+   HOW:
+   ├── Create malicious package
+   ├── Name similarity (typosquatting)
+   ├── Publish ke PyPI
+   ├── Users pip install
+   └── Backdoor executes
+   DETECTION: pip audit, dependency scanning
+   BYPASS: Use alternate method
+
+3. GO_MODULE
+   WHAT: Malicious Go module
+   HOW:
+   ├── Create malicious module
+   ├── Name similarity
+   ├── Publish ke Go module proxy
+   ├── Users go get
+   └── Backdoor executes
+   DETECTION: go mod audit, dependency scanning
+   BYPASS: Use alternate method
+
+4. RUBY_GEM
+   WHAT: Malicious Ruby gem
+   HOW:
+   ├── Create malicious gem
+   ├── Name similarity
+   ├── Publish ke RubyGems
+   ├── Users gem install
+   └── Backdoor executes
+   DETECTION: bundler-audit, dependency scanning
+   BYPASS: Use alternate method
+
+5. MAVEN
+   WHAT: Malicious Maven artifact
+   HOW:
+   ├── Create malicious artifact
+   ├── Name similarity
+   ├── Publish ke Maven Central
+   ├── Users maven install
+   └── Backdoor executes
+   DETECTION: dependency scanning
+   BYPASS: Use alternate method
+
+6. NUGET
+   WHAT: Malicious NuGet package
+   HOW:
+   ├── Create malicious package
+   ├── Name similarity
+   ├── Publish ke NuGet
+   ├── Users dotnet add package
+   └── Backdoor executes
+   DETECTION: dependency scanning
+   BYPASS: Use alternate method
 
 CI_CD (6):
-├── github_actions     — Malicious GitHub Actions workflow
-├── gitlab_ci          — Malicious .gitlab-ci.yml
-├── jenkins            — Malicious Jenkinsfile
-├── azure_pipelines    — Malicious azure-pipelines.yml
-├── circleci           — Malicious .circleci/config.yml
-└── bitbucket          — Malicious bitbucket-pipelines.yml
+
+1. GITHUB_ACTIONS
+   WHAT: Malicious GitHub Actions workflow
+   HOW:
+   ├── Create malicious workflow
+   ├── Target repository
+   ├── Workflow executes
+   ├── Backdoor deployed
+   └── Access repository
+   DETECTION: Workflow audit
+   BYPASS: Use alternate method
+
+2. GITLAB_CI
+   WHAT: Malicious .gitlab-ci.yml
+   HOW:
+   ├── Create malicious CI config
+   ├── Target repository
+   ├── Pipeline executes
+   ├── Backdoor deployed
+   └── Access repository
+   DETECTION: CI config audit
+   BYPASS: Use alternate method
+
+3. JENKINS
+   WHAT: Malicious Jenkinsfile
+   HOW:
+   ├── Create malicious Jenkinsfile
+   ├── Target repository
+   ├── Pipeline executes
+   ├── Backdoor deployed
+   └── Access Jenkins
+   DETECTION: Jenkinsfile audit
+   BYPASS: Use alternate method
+
+4. AZURE_PIPELINES
+   WHAT: Malicious azure-pipelines.yml
+   HOW:
+   ├── Create malicious pipeline config
+   ├── Target repository
+   ├── Pipeline executes
+   ├── Backdoor deployed
+   └── Access Azure DevOps
+   DETECTION: Pipeline config audit
+   BYPASS: Use alternate method
+
+5. CIRCLECI
+   WHAT: Malicious .circleci/config.yml
+   HOW:
+   ├── Create malicious config
+   ├── Target repository
+   ├── Pipeline executes
+   ├── Backdoor deployed
+   └── Access CircleCI
+   DETECTION: Config audit
+   BYPASS: Use alternate method
+
+6. BITBUCKET
+   WHAT: Malicious bitbucket-pipelines.yml
+   HOW:
+   ├── Create malicious config
+   ├── Target repository
+   ├── Pipeline executes
+   ├── Backdoor deployed
+   └── Access Bitbucket
+   DETECTION: Config audit
+   BYPASS: Use alternate method
 
 PACKAGE_MANAGER (4):
-├── homebrew           — Malicious Homebrew formula
-├── chocolatey         — Malicious Chocolatey package
-├── apt_repo           — Malicious APT repository
-└── yum_repo           — Malicious YUM repository
+
+1. HOMEBREW
+   WHAT: Malicious Homebrew formula
+   HOW:
+   ├── Create malicious formula
+   ├── Submit ke Homebrew tap
+   ├── Users brew install
+   └── Backdoor executes
+   DETECTION: Formula audit
+   BYPASS: Use alternate method
+
+2. CHOCOLATEY
+   WHAT: Malicious Chocolatey package
+   HOW:
+   ├── Create malicious package
+   ├── Submit ke Chocolatey
+   ├── Users choco install
+   └── Backdoor executes
+   DETECTION: Package audit
+   BYPASS: Use alternate method
+
+3. APT_REPO
+   WHAT: Malicious APT repository
+   HOW:
+   ├── Create malicious repository
+   ├── Add signing key
+   ├── Users apt install
+   └── Backdoor executes
+   DETECTION: Repository audit
+   BYPASS: Use alternate method
+
+4. YUM_REPO
+   WHAT: Malicious YUM repository
+   HOW:
+   ├── Create malicious repository
+   ├── Add signing key
+   ├── Users yum install
+   └── Backdoor executes
+   DETECTION: Repository audit
+   BYPASS: Use alternate method
 
 BUILD_SYSTEM (4):
+
+1. MAKEFILE
+   WHAT: Malicious Makefile
+   HOW:
+   ├── Inject malicious commands
+   ├── make executes commands
+   ├── Backdoor deployed
+   └── Access system
+   DETECTION: Makefile audit
+   BYPASS: Use alternate method
+
+2. CMAKE
+   WHAT: Malicious CMakeLists.txt
+   HOW:
+   ├── Inject malicious commands
+   ├── cmake executes commands
+   ├── Backdoor deployed
+   └── Access system
+   DETECTION: CMake audit
+   BYPASS: Use alternate method
+
+3. GRADLE
+   WHAT: Malicious build.gradle
+   HOW:
+   ├── Inject malicious tasks
+   ├── gradle executes tasks
+   ├── Backdoor deployed
+   └── Access system
+   DETECTION: Gradle audit
+   BYPASS: Use alternate method
+
+4. MSBUILD
+   WHAT: Malicious .csproj
+   HOW:
+   ├── Inject malicious targets
+   ├── msbuild executes targets
+   ├── Backdoor deployed
+   └── Access system
+   DETECTION: MSBuild audit
+   BYPASS: Use alternate method
+```
+
+**Fallback:**
+Dependency Poison → CI/CD Compromise → Package Manager →
+Build System → ALERT
 ├── makefile           — Malicious Makefile
 ├── cmake              — Malicious CMakeLists.txt
 ├── dockerfile         — Malicious Dockerfile
