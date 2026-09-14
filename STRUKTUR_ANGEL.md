@@ -1026,7 +1026,634 @@ PAYLOAD ENCRYPT:   Enkripsi shellcode anti AV/EDR
 
 ---
 
-## 8. STATISTIK TOTAL
+## 8. MODUL TAMBAHAN v2 (LAYER 26–40)
+
+### 8.1 Container & Kubernetes Security
+
+```
+DOCKER (8):
+├── docker_escape      — /proc/self/root escape, cgroup escape
+├── docker_socket      — Mount /var/run/docker.sock
+├── docker_secret      — Extract container secrets
+├── docker_network     — Bridge network sniffing
+├── docker_build       — Malicious Dockerfile injection
+├── docker_registry    — Registry poisoning
+├── docker_compose     — Compose file manipulation
+└── docker_inventory   — Container enumeration
+
+KUBERNETES (12):
+├── k8s_api            — API server access (unauthenticated/low-priv)
+├── k8s_etcd           — Etcd dump (cluster secrets)
+├── k8s_secrets        — Extract Secrets from namespace
+├── k8s_configmap      — Read/modify ConfigMaps
+├── k8s_rbac           — RBAC privesc (cluster-admin binding)
+├── k8s_service_account│ — Service account token abuse
+├── k8s_pod            — Pod injection (malicious container)
+├── k8s_node           — Node shell (privileged pod)
+├── k8s_network        — Network policy bypass
+├── k8s_admission      — Admission controller bypass
+├── k8s_cronjob        — CronJob persistence
+└── k8s_helm           — Helm chart poisoning
+
+CONTAINER PRIVESC (6):
+├── cap_sys_admin      — Capability abuse
+├── privileged_cont    — Privileged container escape
+├── hostPID            — /proc/pid/ns/nspid escape
+├── hostIPC            — Shared memory attack
+├── hostNetwork        — Network namespace escape
+└── hostPath           — Host filesystem access
+
+FALLBACK:
+Docker Socket → Container Escape → K8s API → Etcd Dump →
+Service Account → Pod Injection → Node Shell → ALERT
+```
+
+---
+
+### 8.2 Cloud Deep (AWS/Azure/GCP)
+
+```
+AWS (20):
+├── iam_privesc        — iam:CreatePolicy, iam:AttachUserPolicy
+├── iam_user           — iam:CreateLoginProfile, iam:UpdateLoginProfile
+├── iam_role           — iam:CreateRole, iam:PassRole
+├── lambda             — lambda:CreateFunction, lambda:InvokeFunction
+├── s3_bucket          — s3:PutBucketPolicy, s3:PutObject
+├── ec2_instance       — ec2:RunInstances, ec2:CreateKeyPair
+├── ebs_volume         — ebs:CreateSnapshot (cross-account)
+├── rds                — rds:CreateDBSnapshot, rds:ModifyDBInstance
+├── secrets_manager    — secretsmanager:GetSecretValue
+├── ssm_parameter      — ssm:GetParameter
+├── kms                — kms:Decrypt, kms:GenerateDataKey
+├── cloudtrail         — cloudtrail:StopLogging
+├── guardduty          — guardduty:DeleteDetector
+├── vpc_flow           — vpc:DeleteFlowLogs
+├── api_gateway        — apigateway:UpdateRestApiPolicy
+├── ecs                — ecs:RunTask (privileged)
+├── eks                — eks:AccessKubernetesApi
+├── codepipeline       — codepipeline:PutJobSuccessResult
+├── cloudformation     — cloudformation:UpdateStack
+└── ecs_secret         — ecs:DescribeTaskDefinition (secrets)
+
+AZURE (18):
+├── az_ad              — Microsoft.Graph: Application.ReadWrite.All
+├── az_managed_id      — Managed Identity impersonation
+├── az_key_vault       — Key Vault secret extraction
+├── az_storage         — Storage account key abuse
+├── az_sql             — SQL admin access
+├── az_vm              — VM extension install
+├── az_aks             — AKS cluster admin
+├── az_function        — Function App code injection
+├── az_devops          — DevOps pipeline abuse
+├── az_resource_group  — Resource group owner
+├── az_subscription    — Subscription owner
+├── az_policy          — Policy exemption
+├── az_role            — Role assignment
+├── az_cosmosdb        — Cosmos DB account access
+├── az_dns             — DNS zone manipulation
+├── az_cdn             — CDN endpoint manipulation
+├── az_arm_template    — ARM template injection
+└── az_graph           — Azure AD Graph enumeration
+
+GCP (16):
+├── gcp_iam            — iam.serviceAccountKeys.create
+├── gcp_service_acct   — serviceAccount impersonation
+├── gcp_compute        — compute.instances.setMetadata
+├── gcp_storage        — storage.objects.create (bucket)
+├── gcp_sql            — sql.instances.create (public IP)
+├── gcp_kms            — cryptoKey.decrypt
+├── gcp_secret_manager │ — secretmanager.secrets.get
+├── gcp_gke            — container.clusters.getCredentials
+├── gcp_cloud_function │ — cloudfunctions.functions.create
+├── gcp_bigquery       — bigquery.jobs.create (data exfil)
+├── gcp_pubsub         — pubsub.topics.publish
+├── gcp_firestore      — firestore.documents.get
+├── gcp_logging        — logging.sinks.delete
+├── gcp_audit_config   — auditConfigs modification
+├── gcp_organization   — orgPolicy.disable
+└── gcp_project        — resourcemanager.projects.update
+
+FALLBACK:
+IAM Privesc → Lambda → S3 → EC2 → Secrets Manager →
+CloudTrail → GuardDuty → VPC Flow → ALERT
+```
+
+---
+
+### 8.3 Social Engineering
+
+```
+PHISHING (8):
+├── email_phish        — Crafted email + malicious attachment
+├── spear_phish        — Targeted email (CEO fraud, BEC)
+├── whaling            — C-level targeting
+├── clone_phish        — Clone legitimate email
+├── vishing            — Voice phishing (call center)
+├── smishing           — SMS phishing
+├── qr_phish           — QR code phishing
+└── phishing_kit       — Pre-built phishing pages
+
+PRETEXTING (5):
+├── helpdesk_imperson  — IT support impersonation
+├── vendor_imperson    — Vendor/partner impersonation
+├── executive_imperson — C-level impersonation
+├── new_employee       — New hire pretext
+└── maintenance        — Maintenance window pretext
+
+OSINT_FOR_SE (6):
+├── social_media       — LinkedIn, Facebook, Instagram recon
+├── email_harvest      — Email collection from public sources
+├── phone_harvest      — Phone number collection
+├── org_chart          — Organization structure mapping
+├── tech_stack         — Technology stack identification
+└── vendor_recon       — Vendor/partner reconnaissance
+
+CAMPAIGN (4):
+├── gophish_integrate  — GoPhish integration
+├── campaign_track     — Campaign tracking (opens, clicks)
+├── credential_harvest — Credential capture
+└── payload_delivery   — Payload delivery via phishing
+
+FALLBACK:
+Email Phish → Spear Phish → Vishing → Smishing → QR Phish →
+Pretexting → Physical Access → ALERT
+```
+
+---
+
+### 8.4 Wireless Attacks
+
+```
+WIFI (8):
+├── evil_twin          — Rogue AP with same SSID
+├── deauth_attack      — Deauthentication flood
+├── wpa3_attack        — WPA3 downgrade attack
+├── handshake_capture  — 4-way handshake capture
+├── pmkid_attack       — PMKID capture (no client)
+├── credential_harvest — Captive portal credential steal
+├── rogue_dhcp        — DHCP rogue server
+└── karma_attack       — Karma AP (respond to any SSID)
+
+BLUETOOTH (5):
+├── bt_scan            — Device discovery
+├── bt_sniff           — Traffic capture
+├── bt_inject          — Packet injection
+├── bt_spam            — Bluetooth spam (BLADES法案)
+└── bt_pairing         — Pairing attack
+
+RFID/NFC (4):
+├── rfid_clone         — Proxmark3 clone
+├── rfid_emulate       — Proxmark3 emulate
+├── nfc_relay          — NFC relay attack
+└── nfc_dump           — NFC tag dump
+
+TOOLS (5):
+├── proxmark3          — RFID/NFC tool
+├── hackrf             — SDR (Software Defined Radio)
+├── wifi_pineapple     — WiFi attack platform
+├── bluetooth_sdr      — Bluetooth SDR
+└── uhf_reader         — UHF RFID reader
+
+FALLBACK:
+Evil Twin → Deauth → Handshake → PMKID →
+Captive Portal → Bluetooth → RFID/NFC → ALERT
+```
+
+---
+
+### 8.5 Supply Chain
+
+```
+DEPENDENCY (6):
+├── npm_poison         — Malicious npm package
+├── pypi_poison        — Malicious PyPI package
+├── go_module          — Malicious Go module
+├── ruby_gem           — Malicious Ruby gem
+├── maven              — Malicious Maven artifact
+└── nuget              — Malicious NuGet package
+
+CI_CD (6):
+├── github_actions     — Malicious GitHub Actions workflow
+├── gitlab_ci          — Malicious .gitlab-ci.yml
+├── jenkins            — Malicious Jenkinsfile
+├── azure_pipelines    — Malicious azure-pipelines.yml
+├── circleci           — Malicious .circleci/config.yml
+└── bitbucket          — Malicious bitbucket-pipelines.yml
+
+PACKAGE_MANAGER (4):
+├── homebrew           — Malicious Homebrew formula
+├── chocolatey         — Malicious Chocolatey package
+├── apt_repo           — Malicious APT repository
+└── yum_repo           — Malicious YUM repository
+
+BUILD_SYSTEM (4):
+├── makefile           — Malicious Makefile
+├── cmake              — Malicious CMakeLists.txt
+├── dockerfile         — Malicious Dockerfile
+└── pre_commit         — Malicious pre-commit hook
+
+FALLBACK:
+npm Poison → PyPI Poison → GitHub Actions → GitLab CI →
+Jenkins → Dockerfile → Makefile → ALERT
+```
+
+---
+
+### 8.6 API Security Deep
+
+```
+AUTH_ABUSE (8):
+├── oauth_redirect     — OAuth redirect URI manipulation
+├── oauth_scope        — OAuth scope escalation
+├── oauth_token        — OAuth token theft/reuse
+├── jwt_none           — JWT alg:none
+├── jwt_weak           — JWT weak secret (brute force)
+├── jwt_kid            — JWT kid injection
+├── jwt_key_confusion  — JWT RSA/HMAC key confusion
+└── api_key            — API key extraction/reuse
+
+BUSINESS_LOGIC (6):
+├── rate_bypass        — Rate limit bypass (race condition)
+├── price_manip        — Price manipulation
+├── quantity_manip     — Quantity manipulation
+├── idor               — Insecure Direct Object Reference
+├── function_leak      — Hidden function discovery
+└── workflow_abuse     — Workflow step bypass
+
+INJECTION (5):
+├── nosql_api          — NoSQL injection via API
+├── graphql_introspect — GraphQL introspection
+├── graphql_depth      — GraphQL depth abuse (DoS)
+├── xml_entity         — XXE via API
+└── json_injection     — JSON parameter pollution
+
+FALLBACK:
+OAuth Redirect → Scope Escalation → JWT Attack → API Key →
+Rate Limit Bypass → IDOR → Injection → ALERT
+```
+
+---
+
+### 8.7 Mobile Deep (iOS/Android)
+
+```
+IOS (10):
+├── keychain_dump      — Keychain credential extraction
+├── jailbreak_detect   — Jailbreak detection bypass
+├── ssl_pinning        — SSL pinning bypass
+├── backup_extract     — iTunes backup extraction
+├── plist_dump         — plist file extraction
+├── scheme_abuse       — URL scheme hijacking
+├── webview_attack     — WKWebView/JSBridge exploitation
+├── pasteboard_hijack  — Pasteboard data theft
+├── notification_hijack│ — Notification interception
+└── app_cloning        — App clone with injected code
+
+ANDROID (10):
+├── magisk_hide         — Magisk hide bypass
+├── root_detection     — Root detection bypass
+├── ssl_pinning        — SSL pinning bypass
+├── backup_extract     — ADB backup extraction
+├── shared_prefs       — SharedPreferences extraction
+├── intent_hijack      — Intent hijacking
+├── content_provider   — Content Provider abuse
+├── broadcast_hijack   — Broadcast receiver hijacking
+├── accessibility      — AccessibilityService abuse
+└── frida_hook         — Frida dynamic instrumentation
+
+UNIVERSAL (6):
+├── certificate_pinning│ — Certificate pinning bypass
+├── binary_analysis    — Binary reverse engineering
+├── memory_dump        — Runtime memory dump
+├── api_intercept      — API call interception
+├── traffic_analysis   — Network traffic analysis
+└── ssl_decrypt        — SSL/TLS decryption
+
+FALLBACK:
+Jailbreak/Root Bypass → SSL Pinning → Keychain/SharedPrefs →
+Backup Extract → WebView Exploit → Frida Hook → ALERT
+```
+
+---
+
+### 8.8 Physical Security
+
+```
+USB_ATTACKS (5):
+├── usb_drop           — Malicious USB drop
+├── usb_hider          — USB HID attack (Rubber Ducky)
+├── usb_storage        — USB with autorun payload
+├── usb_wifi_squirrel  — WiFi credential theft
+└── usb_badusb         — BadUSB firmware attack
+
+LOCK_PICKING (4):
+├── pin_tumbler        — Pin tumbler picking
+├── bump_key           — Bump key attack
+├── bypass_tool        — Bypass tool (shove knife)
+└── combination_lock   — Combination lock bypass
+
+BADGE_CLONE (3):
+├── rfid_clone         — Proxmark3 badge clone
+├── rfid_emulate       — Badge emulation
+└── tailgating         — Tailgating/piggybacking
+
+PHYSICAL_ENUM (4):
+├── wifi_pineapple     — Rogue AP deployment
+├── network_tap        — Physical network tap
+├── lock_wire          — Lock wire attack
+└── desk_spy           — Desk/cubicle reconnaissance
+
+TOOLS (5):
+├── proxmark3          — RFID/NFC
+├── lock_pick_set      — Lock picking
+├── rubber_ducky       — USB HID
+├── bash_bunny         — USB attack
+└── WiFi_Pineapple     — WiFi attack
+
+FALLBACK:
+USB Drop → Badge Clone → Tailgating → Lock Picking →
+Network Tap → WiFi Rogue AP → ALERT
+```
+
+---
+
+### 8.9 Purple Team
+
+```
+DETECTION_TEST (8):
+├── alert_validation   — Test SOC alert accuracy
+├── detection_rules    — Validate detection rules (Sigma/YARA)
+├── log_coverage       — Verify log collection coverage
+├── siem_correlation   — Test SIEM correlation rules
+├── endpoint_detection │ — Test EDR detection
+├── network_detection  — Test NDR/IDS detection
+├── email_detection    — Test email security gateway
+└── cloud_detection    — Test cloud security posture
+
+SOC_VALIDATION (6):
+├── response_time      — Measure SOC response time
+├── triage_accuracy    — Validate triage decisions
+├── escalation_path    — Test escalation procedures
+├── playbook_follow    — Validate playbook execution
+├── analyst_skill      — Assess analyst capabilities
+└── tool_effectiveness │ — Validate security tool effectiveness
+
+MITRE_MAPPING (5):
+├── technique_coverage │ — Map techniques to MITRE ATT&CK
+├── tactic_coverage    — Map tactics to MITRE ATT&CK
+├── procedure_coverage │ — Map procedures to MITRE ATT&CK
+├── gap_analysis       — Identify detection gaps
+└── coverage_matrix    — Generate coverage matrix
+
+REPORTING (4):
+├── purple_team_report │ — Purple team engagement report
+├── detection_score    — Detection capability score
+├── improvement_plan   — Improvement recommendations
+└── metrics_dashboard  — Metrics visualization
+
+FALLBACK:
+Alert Validation → Detection Rules → Log Coverage →
+SIEM Correlation → EDR Test → NDR Test → Report
+```
+
+---
+
+### 8.10 Threat Intelligence
+
+```
+IOC_GENERATION (6):
+├── file_ioc           — File hashes, paths, registry keys
+├── network_ioc        — IPs, domains, URLs
+├── email_ioc          — Email addresses, headers
+├── behavioral_ioc     — Process behaviors, API calls
+├── memory_ioc         — Memory artifacts
+└── cloud_ioc          — Cloud-specific IOCs
+
+MITRE_MAPPING (4):
+├── technique_id       — MITRE technique IDs
+├── group_mapping      — Map to threat groups
+├── campaign_mapping   — Map to campaigns
+└── software_mapping   — Map to malware families
+
+THREAT_FEED (5):
+├── osint_feed         — OSINT threat feeds
+├── commercial_feed    — Commercial threat intel
+├── government_feed    — Government/CERT feeds
+├── industry_feed      — Industry ISAC feeds
+└── dark_web_feed      — Dark web monitoring
+
+INTELLIGENCE_REPORT (4):
+├── threat_profile     — Threat actor profile
+├── capability_assess  — Capability assessment
+├── intent_assessment  — Intent assessment
+└── risk_assessment    — Risk assessment
+
+FALLBACK:
+IOC Generation → MITRE Mapping → Threat Feed →
+Intelligence Report → Distribution → Update Rules
+```
+
+---
+
+### 8.11 Incident Response
+
+```
+IR_SIMULATION (6):
+├── breach_simulate    — Simulate data breach
+├── ransomware_sim     — Simulate ransomware attack
+├── ddos_sim           — Simulate DDoS attack
+├── insider_sim        — Simulate insider threat
+├── apt_sim            — Simulate APT attack
+└── supply_chain_sim   — Simulate supply chain attack
+
+FORENSIC_COUNTER (6):
+├── log_tamper         — Log tampering
+├── timestamp_manip    — Timestamp manipulation
+├── evidence_destruction│ — Evidence destruction
+├── memory_wipe        — Memory artifact wiping
+├── disk_wipe          — Disk artifact wiping
+└── network_cleanup    — Network artifact cleanup
+
+IR_PLAYBOOK (5):
+├── containment        — Containment procedures
+├── eradication        — Eradication procedures
+├── recovery           — Recovery procedures
+├── post_incident      — Post-incident review
+└── lessons_learned    — Lessons learned documentation
+
+IR_TOOLS (5):
+├── volatility         — Memory forensics
+├── autopsy            — Disk forensics
+├──Wireshark           — Network forensics
+├── log_parser         — Log analysis
+└── timeline_tool      — Timeline analysis
+
+FALLBACK:
+Breach Sim → Ransomware Sim → Insider Sim → APT Sim →
+Log Tamper → Evidence Destruction → IR Report
+```
+
+---
+
+### 8.12 Zero Trust Testing
+
+```
+IDENTITY (6):
+├── mfa_bypass         — MFA bypass techniques
+├── sso_abuse          — SSO token abuse
+├── conditional_bypass │ — Conditional access bypass
+├── device_compliance  — Device compliance bypass
+├── identity_federation│ — Federation attack
+└── credential_stuff   — Credential stuffing
+
+NETWORK (6):
+├── micro_seg_bypass   — Micro-segmentation bypass
+├── ztna_bypass        — ZTNA (Zscaler/Cloudflare) bypass
+├── vpn_bypass         — VPN bypass techniques
+├── tunnel_establish   — Tunnel establishment
+├── protocol_smuggle   — Protocol smuggling
+└── dns_exfil          — DNS exfiltration
+
+APPLICATION (5):
+├── api_auth_bypass    — API authentication bypass
+├── session_hijack     — Session hijacking
+├── token_forge        — Token forgery
+├── policy_bypass      — Policy bypass
+└── access_escalation  — Access escalation
+
+DATA (4):
+├── dlp_bypass         — DLP bypass techniques
+├── exfil_tunnel       — Exfiltration tunnel
+├── encryption_bypass  — Encryption bypass
+└── classification_bypass│ — Data classification bypass
+
+FALLBACK:
+MFA Bypass → SSO Abuse → Conditional Bypass → ZTNA Bypass →
+Micro-seg Bypass → DLP Bypass → Tunnel Exfil → ALERT
+```
+
+---
+
+### 8.13 Web3/DeFi
+
+```
+SMART_CONTRACT (8):
+├── reentrancy         — Reentrancy attack
+├── overflow           — Integer overflow/underflow
+├── front_run          — Front-running (MEV)
+├── flash_loan         — Flash loan attack
+├── oracle_manip       — Oracle manipulation
+├── access_control     — Access control bypass
+├── proxy_upgrade      — Proxy upgrade attack
+└── signature_abuse    — Signature replay/abuse
+
+DEFI_EXPLOIT (6):
+├── liquidity_drain    — Liquidity pool drain
+├── price_manip        — Price manipulation
+├── yield_farm         — Yield farming exploit
+├── governance_attack  — Governance attack
+├── bridge_exploit     — Cross-chain bridge exploit
+└── lending_exploit    — Lending protocol exploit
+
+WALLET_ATTACK (5):
+├── seed_phrase        — Seed phrase theft
+├── private_key        — Private key extraction
+├── approval_abuse     — Token approval abuse
+├── permit_sign        — Permit signature abuse
+└── wallet_connect     — WalletConnect hijack
+
+NFT_EXPLOIT (3):
+├── metadata_manip     — Metadata manipulation
+├── rarity_manip       — Rarity manipulation
+├── royalty_bypass     — Royalty bypass
+
+FALLBACK:
+Reentrancy → Flash Loan → Oracle Manip → Front Run →
+Access Control → Proxy Upgrade → Bridge Exploit → ALERT
+```
+
+---
+
+### 8.14 Malware Analysis
+
+```
+STATIC_ANALYSIS (6):
+├── pe_analysis        — PE header analysis
+├── elf_analysis       — ELF header analysis
+├── import_hash        — Import hash (imphash)
+├── string_extract     — String extraction
+├── packer_detect      — Packer detection
+└── yara_scan          — YARA rule scanning
+
+DYNAMIC_ANALYSIS (6):
+├── sandbox_run        — Sandbox execution
+├── api_monitor        — API call monitoring
+├── network_capture    — Network traffic capture
+├── registry_monitor   — Registry change monitoring
+├── file_monitor       — File system change monitoring
+└── memory_forensic    — Memory forensics
+
+UNPACKING (5):
+├── upx_unpack         — UPX unpacking
+├── custom_unpack      — Custom packer unpacking
+├── debug_unpack       — Debug-based unpacking
+├── emulation_unpack   — Emulation-based unpacking
+└── dynamic_unpack     — Runtime unpacking
+
+EVASION_ANALYSIS (5):
+├── anti_debug_detect  — Anti-debug technique detection
+├── anti_vm_detect     — Anti-VM technique detection
+├── anti_sandbox_detect│ — Anti-sandbox detection
+├── timing_evasion     — Timing-based evasion
+└── environment_check  — Environment check analysis
+
+FALLBACK:
+Static Analysis → YARA Scan → Dynamic Analysis → API Monitor →
+Network Capture → Memory Forensic → Unpack → Report
+```
+
+---
+
+### 8.15 AI/ML Attacks
+
+```
+MODEL_ATTACKS (6):
+├── model_steal        — Model extraction (query-based)
+├── model_poison       — Training data poisoning
+├── model_evasion      — Adversarial examples
+├── model_inversion    — Model inversion (data recovery)
+├── membership_infer   — Membership inference
+└── backdoor_insert    — Backdoor insertion
+
+PROMPT_INJECTION (5):
+├── direct_injection   — Direct prompt injection
+├── indirect_injection │ — Indirect (via document/URL)
+├── jailbreak          — LLM jailbreaking
+├── data_exfil         — Data exfiltration via LLM
+└── tool_abuse         — LLM tool abuse
+
+AI_INFRASTRUCTURE (5):
+├── api_abuse          — AI API abuse
+├── training_data      — Training data poisoning
+├── model_service      — Model service exploitation
+├── vector_db          — Vector database attack
+└── embedding_poison   — Embedding poisoning
+
+AI_SAFETY_BYPASS (5):
+├── content_filter     — Content filter bypass
+├── safety_training    — Safety training bypass
+├── alignment_break    — Alignment break
+├── hallucination_exp  — Hallucination exploitation
+└── bias_exploit       — Bias exploitation
+
+FALLBACK:
+Model Steal → Adversarial Example → Prompt Injection →
+Data Poison → Jailbreak → API Abuse → Safety Bypass → ALERT
+```
+
+---
+
+## 9. STATISTIK TOTAL
 
 | Domain | Modul |
 |--------|-------|
@@ -1054,11 +1681,26 @@ PAYLOAD ENCRYPT:   Enkripsi shellcode anti AV/EDR
 | Network Evasion | 10+ modules |
 | Destruction Chain | 3+ modules |
 | Implant Generator | 3+ modules |
-| **TOTAL** | **~700+ modules** |
+| Container/K8s | 26+ modules (8 Docker, 12 K8s, 6 Privesc) |
+| Cloud Deep | 54+ modules (20 AWS, 18 Azure, 16 GCP) |
+| Social Engineering | 23+ modules (8 phishing, 5 pretexting, 6 OSINT, 4 campaign) |
+| Wireless | 22+ modules (8 WiFi, 5 BT, 4 RFID/NFC, 5 tools) |
+| Supply Chain | 20+ modules (6 dependency, 6 CI/CD, 4 package, 4 build) |
+| API Security | 24+ modules (8 auth, 6 business logic, 5 injection, 5 more) |
+| Mobile Deep | 26+ modules (10 iOS, 10 Android, 6 universal) |
+| Physical Security | 21+ modules (5 USB, 4 lock, 3 badge, 4 enum, 5 tools) |
+| Purple Team | 23+ modules (8 detection, 6 SOC, 5 MITRE, 4 report) |
+| Threat Intelligence | 19+ modules (6 IOC, 4 MITRE, 5 feed, 4 report) |
+| Incident Response | 22+ modules (6 sim, 6 counter, 5 playbook, 5 tools) |
+| Zero Trust | 21+ modules (6 identity, 6 network, 5 app, 4 data) |
+| Web3/DeFi | 22+ modules (8 contract, 6 DeFi, 5 wallet, 3 NFT) |
+| Malware Analysis | 27+ modules (6 static, 6 dynamic, 5 unpack, 5 evasion) |
+| AI/ML Attacks | 21+ modules (6 model, 5 prompt, 5 infra, 5 safety) |
+| **TOTAL** | **~1200+ modules** |
 
 ---
 
-## 9. PRINSIP DASAR
+## 10. PRINSIP DASAR
 
 1. **"No copy-paste"** — tiap baris ditulis sendiri.
 2. **"If I can't explain every line, it doesn't go in"**
@@ -1073,7 +1715,7 @@ PAYLOAD ENCRYPT:   Enkripsi shellcode anti AV/EDR
 
 ---
 
-## 10. CHECKLIST FINAL
+## 11. CHECKLIST FINAL
 
 | # | Layer | Status |
 |---|-------|--------|
@@ -1102,22 +1744,40 @@ PAYLOAD ENCRYPT:   Enkripsi shellcode anti AV/EDR
 | 23 | Network Evasion | [ ] |
 | 24 | Full Scope Destruction | [ ] |
 | 25 | Implant Generator | [ ] |
+| 26 | Container/K8s Security (8 Docker + 12 K8s + 6 Privesc) | [ ] |
+| 27 | Cloud Deep (20 AWS + 18 Azure + 16 GCP) | [ ] |
+| 28 | Social Engineering (8 phishing + 5 pretexting + 6 OSINT + 4 campaign) | [ ] |
+| 29 | Wireless (8 WiFi + 5 BT + 4 RFID/NFC + 5 tools) | [ ] |
+| 30 | Supply Chain (6 dependency + 6 CI/CD + 4 package + 4 build) | [ ] |
+| 31 | API Security Deep (8 auth + 6 business + 5 injection) | [ ] |
+| 32 | Mobile Deep (10 iOS + 10 Android + 6 universal) | [ ] |
+| 33 | Physical Security (5 USB + 4 lock + 3 badge + 4 enum + 5 tools) | [ ] |
+| 34 | Purple Team (8 detection + 6 SOC + 5 MITRE + 4 report) | [ ] |
+| 35 | Threat Intelligence (6 IOC + 4 MITRE + 5 feed + 4 report) | [ ] |
+| 36 | Incident Response (6 sim + 6 counter + 5 playbook + 5 tools) | [ ] |
+| 37 | Zero Trust Testing (6 identity + 6 network + 5 app + 4 data) | [ ] |
+| 38 | Web3/DeFi (8 contract + 6 DeFi + 5 wallet + 3 NFT) | [ ] |
+| 39 | Malware Analysis (6 static + 6 dynamic + 5 unpack + 5 evasion) | [ ] |
+| 40 | AI/ML Attacks (6 model + 5 prompt + 5 infra + 5 safety) | [ ] |
 
 ---
 
-## 11. TIMELINE PENGERJAAN
+## 12. TIMELINE PENGERJAAN
 
 | Phase | Fokus | Target |
 |-------|-------|--------|
-| Phase 1 | Layer 1-5 | Minggu 1-2 |
-| Phase 2 | Layer 6-10 | Minggu 3-4 |
-| Phase 3 | Layer 11-15 | Minggu 5-6 |
-| Phase 4 | Layer 16-21 | Minggu 7-8 |
-| Phase 5 | Layer 22-25 | Minggu 9-10 |
+| Phase 1 | Layer 1-5 (Core C2) | Minggu 1-2 |
+| Phase 2 | Layer 6-10 (Evasion, AD, Lateral, Persist, Rootkit) | Minggu 3-4 |
+| Phase 3 | Layer 11-15 (Credential, Collector, Destruct, Orchestrator, Brain) | Minggu 5-6 |
+| Phase 4 | Layer 16-21 (Infra, OSINT, Exploit, Evidence, Report, Cleanup) | Minggu 7-8 |
+| Phase 5 | Layer 22-25 (AuthBypass, Network Evasion, Destruction Chain, Implant) | Minggu 9-10 |
+| Phase 6 | Layer 26-30 (Container, Cloud, SE, Wireless, Supply Chain) | Minggu 11-12 |
+| Phase 7 | Layer 31-35 (API, Mobile, Physical, Purple Team, Threat Intel) | Minggu 13-14 |
+| Phase 8 | Layer 36-40 (IR, Zero Trust, Web3, Malware, AI/ML) | Minggu 15-16 |
 
 ---
 
-## 12. DOKUMENTASI CARA PAKAI
+## 13. DOKUMENTASI CARA PAKAI
 
 ### Setup
 ```bash
@@ -1150,12 +1810,12 @@ make verify-clean
 
 ---
 
-## 13. KESIMPULAN
+## 14. KESIMPULAN
 
-ANGEL adalah platform offensive security tingkat lanjut untuk P0/P1 findings. Setiap layer memiliki minimal 5-7 teknik alternatif, fallback otomatis, deteksi environment, adaptasi, edge case handling, resilience, dan recovery.
+ANGEL adalah platform offensive security tingkat lanjut untuk P0/P1 findings. Platform ini mencakup 40 layer dengan ~1200+ modules, mencakup传统 red team, cloud-native, container, mobile, wireless, social engineering, supply chain, Web3, dan AI/ML. Setiap layer memiliki minimal 5-7 teknik alternatif, fallback otomatis, deteksi environment, adaptasi, edge case handling, resilience, dan recovery.
 
 ---
 
-## 14. LEGAL & SAFETY DISCLAIMER
+## 15. LEGAL & SAFETY DISCLAIMER
 
 > **PENTING:** Blueprint ini hanya untuk tujuan pendidikan, penelitian, dan pengujian keamanan yang sah. Dilarang keras menggunakan untuk menyerang sistem tanpa izin tertulis. Pelanggaran dikenakan sanksi pidana dan perdata.
