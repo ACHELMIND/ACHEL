@@ -1,4 +1,4 @@
-# ANGEL — BLUEPRINT FINAL v2.1 (LAYER 1-25)
+# ANGEL — BLUEPRINT FINAL v3.0 (LAYER 1-60)
 
 > **Status:** FINAL & EXECUTABLE
 > **Tujuan:** Platform offensive security (red team) untuk engagement resmi.
@@ -1653,7 +1653,569 @@ Data Poison → Jailbreak → API Abuse → Safety Bypass → ALERT
 
 ---
 
-## 9. STATISTIK TOTAL
+## 9. MODUL TAMBAHAN v3 (LAYER 41–60)
+
+### 9.1 IPv6 Attacks
+
+```
+NDP_ATTACKS (5):
+├── ra_spoof           — Router Advertisement spoofing
+├── ns_flood           — Neighbor Solicitation flood
+├── dad_attack         — Duplicate Address Detection DoS
+├── redirect_attack    — ICMPv6 Redirect manipulation
+└── smurf_ipv6         — ICMPv6 Smurf attack
+
+DNSV6 (4):
+├── dnsv6_spoof        — DNS64/NAT64 spoofing
+├── dnsv6_poison       — DNS cache poisoning via IPv6
+├── dnsv6_exfil        — DNS exfiltration over IPv6
+└── dnsv6_tunnel       — IPv6-in-IPv4 tunnel
+
+TRANSITION_ABUSE (4):
+├── teredo_abuse       — Teredo tunnel exploitation
+├── isatap_abuse       — ISATAP tunnel exploitation
+├── 6to4_abuse         — 6to4 tunnel exploitation
+└── dual_stack         — Dual-stack protocol confusion
+
+FALLBACK:
+RA Spoof → NS Flood → DNSv6 Spoof → Tunnel Abuse →
+Dual Stack → ALERT
+```
+
+---
+
+### 9.2 mDNS/LLMNR/NBT-NS Poisoning
+
+```
+MDNS (4):
+├── mdns_spoof         — mDNS response spoofing
+├── mdns_rebind        — DNS rebinding via mDNS
+├── mdns_info_leak     — Service information disclosure
+└── mdns_hijack        — mDNS name resolution hijack
+
+LLMNR (4):
+├── llmnr_poison       — LLMNR poisoning (Responder)
+├── llmnr_relay        — LLMNR to SMB relay
+├── llmnr_capture      — Hash capture via LLMNR
+└── llmnr_spoof        — LLMNR response spoofing
+
+NBTNS (4):
+├── nbtns_poison       — NetBIOS name service poisoning
+├── nbtns_relay        — NBT-NS to SMB relay
+├── nbtns_capture      — Hash capture via NBT-NS
+└── nbtns_spoof        — NBT-NS response spoofing
+
+WPAD (3):
+├── wpad_poison        — WPAD.dat poisoning
+├── wpad_mitm          — WPAD man-in-the-middle
+└── wpad_exploit       — WPAD auto-proxy exploitation
+
+FALLBACK:
+mDNS Poison → LLMNR Poison → NBT-NS Poison →
+WPAD Poison → NTLM Relay → ALERT
+```
+
+---
+
+### 9.3 SAML/OIDC Attacks
+
+```
+SAML (6):
+├── saml_xml_inject     — XML signature wrapping
+├── saml_assertion_replay│ — Assertion replay attack
+├── saml_xxe           — XXE in SAML request
+├── saml_signature_bypass│ — Signature validation bypass
+├── saml_misconfig     — SAML misconfiguration
+└── saml_idp_attack    — Identity provider attack
+
+OIDC (5):
+├── oidc_redirect      — Redirect URI manipulation
+├── oidc_token_leak    — Token leakage via referrer
+├── oidc_state_bypass  — State parameter bypass
+├── oidc_nonce_bypass  — Nonce validation bypass
+└── oidc_mixup         — OIDC mix-up attack
+
+OAUTH (4):
+├── oauth_code_steal   — Authorization code theft
+├── oauth_token_forge  — Access token forgery
+├── oauth_scope_escal  — Scope escalation
+└── oauth_refresh_hijack│ — Refresh token hijack
+
+FALLBACK:
+SAML XXE → Assertion Replay → Signature Bypass →
+OAuth Code Steal → Token Forge → OIDC Redirect → ALERT
+```
+
+---
+
+### 9.4 LDAP Injection
+
+```
+LDAP_ATTACKS (6):
+├── ldap_filter_inject — Filter injection (|(uid=*))(|(password=*))
+├── ldap_null_bind     — Null bind authentication bypass
+├── ldap_wildcard      — Wildcard injection
+├── ldap_boolean       — Boolean-based blind LDAP injection
+├── ldap_time_based    — Time-based blind LDAP injection
+└── ldap_error_based   — Error-based data extraction
+
+LDAP_ABUSE (4):
+├── ldap_enum_user     — User enumeration via LDAP
+├── ldap_enum_group    — Group enumeration
+├── ldap_enum_spn      — SPN enumeration (Kerberoasting)
+└── ldap_dump_all      — Full directory dump
+
+FALLBACK:
+Filter Injection → Null Bind → Wildcard → Boolean →
+Time-based → Error-based → User Enum → ALERT
+```
+
+---
+
+### 9.5 CSRF
+
+```
+CSRF_ATTACKS (6):
+├── csrf_token_bypass  — Anti-CSRF token bypass
+├── csrf_referer_bypass│ — Referer validation bypass
+├── csrf_samesite_bypass│ — SameSite cookie bypass
+├── csrf_json          — JSON-based CSRF
+├── csrf_xml           — XML-based CSRF
+└── csrf_flash         — Flash-based CSRF
+
+CSRF_EXPLOIT (4):
+├── csrf_admin_change  — Admin action hijacking
+├── csrf_password      — Password change hijacking
+├── csrf_email         — Email change hijacking
+└── csrf_transfer      — Fund transfer hijacking
+
+FALLBACK:
+Token Bypass → Referer Bypass → SameSite Bypass →
+JSON CSRF → Flash CSRF → Direct Action → ALERT
+```
+
+---
+
+### 9.6 Open Redirect
+
+```
+REDIRECT_ATTACKS (5):
+├── redirect_param     — Parameter manipulation (next, url, redirect)
+├── redirect_double    — Double URL encoding bypass
+├── redirect_protocol  — Protocol-relative redirect (//evil.com)
+├── redirect_backslash │ — Backslash bypass (/\/evil.com)
+└── redirect_unicode   — Unicode/IDN homograph bypass
+
+REDIRECT_EXPLOIT (4):
+├── redirect_phish     — Phishing via trusted domain
+├── redirect_oauth     — OAuth code theft via redirect
+├── redirect_token     — Token leakage via redirect
+└── redirect_cors      — CORS misconfiguration via redirect
+
+FALLBACK:
+Param Manip → Double Encode → Protocol-relative →
+Backslash → Unicode → Direct Phish → ALERT
+```
+
+---
+
+### 9.7 File Upload Bypass
+
+```
+UPLOAD_BYPASS (8):
+├── ext_bypass         — Extension blacklist bypass (pHp5, .php.)
+├── content_type_bypass│ — Content-Type header manipulation
+├── magic_bytes_bypass │ — Magic bytes spoofing
+├── double_ext         — Double extension (shell.php.jpg)
+├── null_byte          — Null byte injection (shell.php%00.jpg)
+├── case_variation     — Case variation (shell.pHp)
+├── path_traversal     — Path traversal in filename
+└── polyglot           — Polyglot file (valid image + PHP)
+
+UPLOAD_EXPLOIT (4):
+├── webshell           — PHP/ASP/JSP webshell upload
+├── htaccess_upload    — .htaccess file upload
+├── svg_xss            — SVG with embedded XSS
+└── pdf_js             — PDF with embedded JavaScript
+
+FALLBACK:
+Ext Bypass → Content-Type Bypass → Magic Bytes →
+Double Extension → Null Byte → Path Traversal →
+Polyglot → Direct Upload → ALERT
+```
+
+---
+
+### 9.8 Subdomain Takeover
+
+```
+TAKEOVER_METHODS (6):
+├── dangling_cname     — CNAME to decommissioned service
+├── dangling_a         — A record to decommissioned IP
+├── dangling_ns        — NS record delegation
+├── azure_takeover     — Azure App Service takeover
+├── aws_takeover       — AWS S3/CloudFront takeover
+└── gcp_takeover       — GCP Storage/Load Balancer takeover
+
+TAKEOVER_TARGETS (8):
+├── github_pages       — github.io CNAME takeover
+├── heroku             — herokuapp.com takeover
+├── shopify            — myshopify.com takeover
+├── fastly             — fastly.net takeover
+├── pantheon           — pantheonsite.io takeover
+├── surge              — surge.sh takeover
+├── cloudfront         — *.cloudfront.net takeover
+└── azure              — *.azurewebsites.net takeover
+
+FALLBACK:
+CNAME Check → A Record Check → NS Check →
+Azure Enum → AWS Enum → GCP Enum → Takeover → ALERT
+```
+
+---
+
+### 9.9 Web Cache Poisoning
+
+```
+CACHE_POISONING (6):
+├── unkeyed_header    — X-Forwarded-Host, X-Original-URL poisoning
+├── unkeyed_cookie    — Cookie-based cache poisoning
+├── fat_get            — GET request with body (fat GET)
+├── parameter_cloaking│ — Parameter cloaking via delimiter
+├── cache_deception    — Cache deception (path confusion)
+└── key_injection     — Cache key injection
+
+CACHE_EXPLOIT (4):
+├── xss_cache          — Stored XSS via cache
+├── redirect_cache     — Open redirect via cache
+├── dos_cache          — Cache-based DoS
+└── takeover_cache     — Subdomain takeover via cache
+
+FALLBACK:
+Unkeyed Header → Cookie Poisoning → Fat GET →
+Parameter Cloaking → Cache Deception → Key Injection → ALERT
+```
+
+---
+
+### 9.10 HTTP Request Smuggling
+
+```
+SMUGGLING_ATTACKS (6):
+├── cl_te              — Content-Length vs Transfer-Encoding conflict
+├── te_cl              — Transfer-Encoding vs Content-Length conflict
+├── te_te              — Obfuscated Transfer-Encoding
+├── cl_cl              — Duplicate Content-Length
+├── h2c_smuggling      — HTTP/2 cleartext smuggling
+└── http2_downgrade    — HTTP/2 to HTTP/1.1 downgrade
+
+SMUGGLING_EXPLOIT (4):
+├── xss_smuggle        — XSS via request smuggling
+├── credential_smuggle │ — Credential theft via smuggling
+├── cache_smuggle      — Cache poisoning via smuggling
+└── rce_smuggle        — RCE via request smuggling
+
+FALLBACK:
+CL.TE → TE.CL → TE.TE → CL.CL → H2C →
+HTTP/2 Downgrade → Direct Smuggle → ALERT
+```
+
+---
+
+### 9.11 DNSSEC Bypass
+
+```
+DNSSEC_ATTACKS (5):
+├── zone_walking       — NSEC zone walking
+├── algo_downgrade     — Algorithm downgrade attack
+├── key_roll_bypass    — Key rollover bypass
+├── cds_cdskey         — CDS/CDNSKEY manipulation
+└── denial_encryption  — NSEC3 hash collision
+
+DNSSEC_ABUSE (3):
+├── sig_forge         — Signature forgery (if weak algo)
+├── replay_attack      — Signed response replay
+└── cache_poison       — DNSSEC bypass for cache poisoning
+
+FALLBACK:
+Zone Walking → Algorithm Downgrade → Key Roll Bypass →
+CDS Manipulation → NSEC3 Collision → Direct Poison → ALERT
+```
+
+---
+
+### 9.12 Certificate Forgery
+
+```
+CERT_ATTACKS (6):
+├── rogue_ca           — Rogue CA certificate generation
+├── ntlm_relay_cert    — NTLM relay to ADCS HTTP enrollment
+├── shadow_cred_cert   — Shadow credentials → certificate
+├── cert_duplication   — Certificate duplication
+├── weak_key           — Weak key exploitation (RSA 1024)
+└── self_signed        — Self-signed certificate injection
+
+CERT_ABUSE (4):
+├── cert_transparency  — CT log abuse
+├── ocsp_stapling      — OCSP stapling bypass
+├── pin_bypass         — Certificate pinning bypass
+└── ca_compromise      — CA private key compromise
+
+FALLBACK:
+Rogue CA → NTLM Relay → Shadow Credentials →
+Weak Key → Self-Signed → Direct Injection → ALERT
+```
+
+---
+
+### 9.13 TLS 1.3 Attacks
+
+```
+TLS13_ATTACKS (5):
+├── middlebox_compat   — Middlebox compatibility downgrade
+├── interception       — TLS 1.3 interception (enterprise)
+├── handshake_log      — Handshake metadata leakage
+├── session_resumption │ — Session ticket abuse
+└── key_logging        — TLS key logging (SSLKEYLOGFILE)
+
+TLS_ABUSE (4):
+├── cipher_downgrade   — Cipher suite downgrade
+├── cert_strip         — Certificate stripping
+├── mitm_tls           — TLS man-in-the-middle
+└── trusted_ca         — Trusted CA abuse
+
+FALLBACK:
+Middlebox Downgrade → Interception → Session Abuse →
+Cipher Downgrade → Cert Strip → Direct MITM → ALERT
+```
+
+---
+
+### 9.14 SCADA/ICS Attacks
+
+```
+SCADA_PROTOCOLS (5):
+├── modbus_attack      — Modbus TCP/RTU exploitation
+├── dnp3_attack        — DNP3 protocol exploitation
+├── iec61850           — IEC 61850 (GOOSE/SV) attack
+├── opcua_attack       — OPC UA exploitation
+└── bacnet_attack      — BACnet protocol exploitation
+
+SCADA_EXPLOIT (5):
+├── plc_reprogram      — PLC reprogramming
+├── hmi_attack         — HMI exploitation
+├── scada_enum         — SCADA device enumeration
+├── protocol_fuzz      — Protocol fuzzing
+└── mitm_scada         — SCADA man-in-the-middle
+
+FALLBACK:
+Modbus → DNP3 → IEC 61850 → OPC UA → BACnet →
+PLC Reprogram → HMI Attack → ALERT
+```
+
+---
+
+### 9.15 IoT Attacks
+
+```
+IOT_ATTACKS (8):
+├── firmware_extract   — Firmware extraction (JTAG/UART/SPI)
+├── firmware_analysis  — Firmware reverse engineering
+├── default_cred       — Default credential testing
+├── mqtt_exploit       — MQTT protocol exploitation
+├── coap_exploit       — CoAP protocol exploitation
+├── zigbee_attack      — Zigbee protocol attack
+├── zwave_attack       — Z-Wave protocol attack
+└── ble_exploit        — BLE (Bluetooth Low Energy) exploitation
+
+IOT_EXPLOIT (5):
+├── device_takeover    — Full device compromise
+├── network_pivot      — IoT network pivot
+├── data_exfil         — IoT data exfiltration
+├── dos_iot            — IoT denial of service
+└── botnet_recruit     — Botnet recruitment
+
+FALLBACK:
+Firmware Extract → Default Cred → MQTT Exploit →
+CoAP Exploit → Zigbee → BLE → Device Takeover → ALERT
+```
+
+---
+
+### 9.16 Compliance Testing
+
+```
+PCI_DSS (8):
+├── card_data_scan     — PAN detection scan
+├── encryption_validate│ — Encryption validation (SSL/TLS)
+├── access_control     — Access control testing
+├── network_segment    — Network segmentation testing
+├── vulnerability_scan │ — Vulnerability scanning
+├── penetration_test   — Penetration testing
+├── log_review         — Log review testing
+└── policy_review      — Policy compliance review
+
+HIPAA (6):
+├── phi_scan           — PHI (Protected Health Information) scan
+├── access_audit       — Access audit testing
+├── encryption_validate│ — Encryption at rest/in transit
+├── backup_validate    — Backup and recovery testing
+├── incident_response  — Incident response testing
+└── baap_review        — Business Associate Agreement review
+
+GDPR (6):
+├── data_mapping       — Data processing mapping
+├── consent_validate   — Consent mechanism validation
+├── right_to_erasure   — Right to erasure testing
+├── data_portability   — Data portability testing
+├── breach_notification│ — Breach notification testing
+└── dpia_review        — Data Protection Impact Assessment
+
+ISO27001 (5):
+├── control_audit      — Security control audit
+├── risk_assessment    — Risk assessment validation
+├── policy_compliance  — Policy compliance testing
+├── incident_mgmt     — Incident management testing
+└── bcdr_testing       — Business continuity testing
+
+FALLBACK:
+PCI Scan → HIPAA PHI → GDPR Data → ISO Control →
+Access Audit → Encryption Validate → Policy Review → Report
+```
+
+---
+
+### 9.17 Methodology Mapping
+
+```
+PTES (7):
+├── intelligence_gather│ — Intelligence gathering
+├── threat_modeling    — Threat modeling
+├── vulnerability_assess│ — Vulnerability assessment
+├── exploitation       — Exploitation
+├── post_exploitation  — Post-exploitation
+├── reporting          — Reporting
+└── remediation        — Remediation
+
+OWASP (10):
+├── injection          — Injection testing
+├── broken_auth        — Broken authentication
+├── sensitive_data     — Sensitive data exposure
+├── xxe                — XML external entities
+├── broken_access      — Broken access control
+├── security_misconfig │ — Security misconfiguration
+├── xss                — Cross-site scripting
+├── insecure_deserialize│ — Insecure deserialization
+├── vulnerable_comp    — Vulnerable components
+└── insufficient_log   — Insufficient logging
+
+NIST_800_115 (6):
+├── plan_network       — Network testing planning
+├── scan_network       — Network scanning
+├── enumerate_services │ — Service enumeration
+├── identify_vuln      — Vulnerability identification
+├── exploit_vuln       — Vulnerability exploitation
+└── post_exploit       — Post-exploitation
+
+OSSTMM (5):
+├── human_sectest      — Human security testing
+├── physical_sectest   — Physical security testing
+├── wireless_sectest   — Wireless security testing
+├── network_sectest    — Network security testing
+└── app_sectest        — Application security testing
+
+FALLBACK:
+PTES → OWASP → NIST → OSSTMM → Custom Methodology → Report
+```
+
+---
+
+### 9.18 OPSEC Procedures
+
+```
+COMMUNICATION (6):
+├── encrypted_comms    — Encrypted communication (Signal, Wire)
+├── dead_drop          — Dead drop communication
+├── covert_channel     — Covert channel (DNS, steganography)
+├── code_words         — Code word system
+├── check_in           — Regular check-in schedule
+└── emergency_beacon   — Emergency beacon protocol
+
+DATA_HANDLING (6):
+├── encrypt_data       — Data encryption at rest
+├── secure_transfer    — Secure data transfer
+├── access_control     — Data access control
+├── audit_trail        — Data audit trail
+├── secure_deletion    — Secure data deletion
+└── chain_of_custody   — Chain of custody documentation
+
+OPERATIONAL_SECURITY (8):
+├── cover_identity     — Cover identity management
+├── digital_hygiene    — Digital hygiene practices
+├── physical_security  — Physical security measures
+├── travel_security    — Travel security protocols
+├── device_security    — Device security (burner phones, VMs)
+├── network_anonymity  — Network anonymity (Tor, VPN)
+├── evidence_handling  — Evidence handling procedures
+└── extraction_plan    — Extraction plan
+
+FALLBACK:
+Encrypted Comms → Dead Drop → Covert Channel →
+Code Words → Check-in → Emergency Beacon → ALERT
+```
+
+---
+
+### 9.19 Multi-Cloud Orchestration
+
+```
+CROSS_CLOUD (6):
+├── aws_to_azure       — Cross-cloud pivot (AWS → Azure)
+├── aws_to_gcp         — Cross-cloud pivot (AWS → GCP)
+├── azure_to_gcp       — Cross-cloud pivot (Azure → GCP)
+├── hybrid_attack      — Hybrid cloud attack
+├── multi_cloud_enum   — Multi-cloud enumeration
+└── federation_abuse   — Federated identity abuse
+
+CLOUD_NATIVE (6):
+├── serverless_attack  — Lambda/Functions exploitation
+├── container_attack   — Container service exploitation
+├── service_mesh      — Service mesh (Istio/Linkerd) exploitation
+├── api_gateway_attack │ — API Gateway exploitation
+├── cdn_attack         — CDN exploitation
+└── dns_cloud_attack   — Cloud DNS exploitation
+
+FALLBACK:
+AWS Pivot → Azure Pivot → GCP Pivot →
+Hybrid Attack → Federation Abuse → Multi-Cloud Enum → ALERT
+```
+
+---
+
+### 9.20 Additional Web Attacks
+
+```
+WEB_MISC (10):
+├── host_header_inject │ — Host header injection
+├── sms_smuggling      — SMS header injection
+├── email_injection    — Email header injection
+├── log_injection      — Log injection (log forging)
+├── header_injection   — HTTP header injection
+├── response_splitting│ — HTTP response splitting
+├── session_fixation   — Session fixation attack
+├── clickjacking       — Clickjacking (UI redressing)
+├── tabnabbing         — Reverse tabnabbing
+└── prototype_pollution│ — JavaScript prototype pollution
+
+FALLBACK:
+Host Header → SMS Smuggling → Email Injection →
+Log Injection → Header Injection → Session Fixation →
+Clickjacking → Tabnabbing → Prototype Pollution → ALERT
+```
+
+---
+
+## 10. STATISTIK TOTAL
 
 | Domain | Modul |
 |--------|-------|
@@ -1686,7 +2248,7 @@ Data Poison → Jailbreak → API Abuse → Safety Bypass → ALERT
 | Social Engineering | 23+ modules (8 phishing, 5 pretexting, 6 OSINT, 4 campaign) |
 | Wireless | 22+ modules (8 WiFi, 5 BT, 4 RFID/NFC, 5 tools) |
 | Supply Chain | 20+ modules (6 dependency, 6 CI/CD, 4 package, 4 build) |
-| API Security | 24+ modules (8 auth, 6 business logic, 5 injection, 5 more) |
+| API Security | 24+ modules (8 auth, 6 business logic, 5 injection) |
 | Mobile Deep | 26+ modules (10 iOS, 10 Android, 6 universal) |
 | Physical Security | 21+ modules (5 USB, 4 lock, 3 badge, 4 enum, 5 tools) |
 | Purple Team | 23+ modules (8 detection, 6 SOC, 5 MITRE, 4 report) |
@@ -1696,11 +2258,31 @@ Data Poison → Jailbreak → API Abuse → Safety Bypass → ALERT
 | Web3/DeFi | 22+ modules (8 contract, 6 DeFi, 5 wallet, 3 NFT) |
 | Malware Analysis | 27+ modules (6 static, 6 dynamic, 5 unpack, 5 evasion) |
 | AI/ML Attacks | 21+ modules (6 model, 5 prompt, 5 infra, 5 safety) |
-| **TOTAL** | **~1200+ modules** |
+| IPv6 Attacks | 13+ modules (5 NDP, 4 DNSv6, 4 transition) |
+| mDNS/LLMNR/NBT-NS | 15+ modules (4 mDNS, 4 LLMNR, 4 NBT-NS, 3 WPAD) |
+| SAML/OIDC | 15+ modules (6 SAML, 5 OIDC, 4 OAuth) |
+| LDAP Injection | 10+ modules (6 attack, 4 abuse) |
+| CSRF | 10+ modules (6 attack, 4 exploit) |
+| Open Redirect | 9+ modules (5 attack, 4 exploit) |
+| File Upload Bypass | 12+ modules (8 bypass, 4 exploit) |
+| Subdomain Takeover | 14+ modules (6 method, 8 target) |
+| Web Cache Poisoning | 10+ modules (6 attack, 4 exploit) |
+| HTTP Request Smuggling | 10+ modules (6 attack, 4 exploit) |
+| DNSSEC Bypass | 8+ modules (5 attack, 3 abuse) |
+| Certificate Forgery | 10+ modules (6 attack, 4 abuse) |
+| TLS 1.3 Attacks | 9+ modules (5 attack, 4 abuse) |
+| SCADA/ICS | 10+ modules (5 protocol, 5 exploit) |
+| IoT Attacks | 13+ modules (8 attack, 5 exploit) |
+| Compliance Testing | 25+ modules (8 PCI, 6 HIPAA, 6 GDPR, 5 ISO) |
+| Methodology Mapping | 28+ modules (7 PTES, 10 OWASP, 6 NIST, 5 OSSTMM) |
+| OPSEC Procedures | 20+ modules (6 comms, 6 data, 8 ops) |
+| Multi-Cloud | 12+ modules (6 cross-cloud, 6 cloud-native) |
+| Web Misc | 10+ modules (host header, SMS, email, log, header, response, session, clickjacking, tabnabbing, prototype) |
+| **TOTAL** | **~1800+ modules** |
 
 ---
 
-## 10. PRINSIP DASAR
+## 11. PRINSIP DASAR
 
 1. **"No copy-paste"** — tiap baris ditulis sendiri.
 2. **"If I can't explain every line, it doesn't go in"**
@@ -1715,7 +2297,7 @@ Data Poison → Jailbreak → API Abuse → Safety Bypass → ALERT
 
 ---
 
-## 11. CHECKLIST FINAL
+## 12. CHECKLIST FINAL
 
 | # | Layer | Status |
 |---|-------|--------|
@@ -1759,10 +2341,30 @@ Data Poison → Jailbreak → API Abuse → Safety Bypass → ALERT
 | 38 | Web3/DeFi (8 contract + 6 DeFi + 5 wallet + 3 NFT) | [ ] |
 | 39 | Malware Analysis (6 static + 6 dynamic + 5 unpack + 5 evasion) | [ ] |
 | 40 | AI/ML Attacks (6 model + 5 prompt + 5 infra + 5 safety) | [ ] |
+| 41 | IPv6 Attacks (5 NDP + 4 DNSv6 + 4 transition) | [ ] |
+| 42 | mDNS/LLMNR/NBT-NS Poisoning (4+4+4+3) | [ ] |
+| 43 | SAML/OIDC Attacks (6 SAML + 5 OIDC + 4 OAuth) | [ ] |
+| 44 | LDAP Injection (6 attack + 4 abuse) | [ ] |
+| 45 | CSRF (6 attack + 4 exploit) | [ ] |
+| 46 | Open Redirect (5 attack + 4 exploit) | [ ] |
+| 47 | File Upload Bypass (8 bypass + 4 exploit) | [ ] |
+| 48 | Subdomain Takeover (6 method + 8 target) | [ ] |
+| 49 | Web Cache Poisoning (6 attack + 4 exploit) | [ ] |
+| 50 | HTTP Request Smuggling (6 attack + 4 exploit) | [ ] |
+| 51 | DNSSEC Bypass (5 attack + 3 abuse) | [ ] |
+| 52 | Certificate Forgery (6 attack + 4 abuse) | [ ] |
+| 53 | TLS 1.3 Attacks (5 attack + 4 abuse) | [ ] |
+| 54 | SCADA/ICS (5 protocol + 5 exploit) | [ ] |
+| 55 | IoT Attacks (8 attack + 5 exploit) | [ ] |
+| 56 | Compliance Testing (8 PCI + 6 HIPAA + 6 GDPR + 5 ISO) | [ ] |
+| 57 | Methodology Mapping (7 PTES + 10 OWASP + 6 NIST + 5 OSSTMM) | [ ] |
+| 58 | OPSEC Procedures (6 comms + 6 data + 8 ops) | [ ] |
+| 59 | Multi-Cloud (6 cross-cloud + 6 cloud-native) | [ ] |
+| 60 | Web Misc (10 web attacks) | [ ] |
 
 ---
 
-## 12. TIMELINE PENGERJAAN
+## 13. TIMELINE PENGERJAAN
 
 | Phase | Fokus | Target |
 |-------|-------|--------|
@@ -1774,10 +2376,12 @@ Data Poison → Jailbreak → API Abuse → Safety Bypass → ALERT
 | Phase 6 | Layer 26-30 (Container, Cloud, SE, Wireless, Supply Chain) | Minggu 11-12 |
 | Phase 7 | Layer 31-35 (API, Mobile, Physical, Purple Team, Threat Intel) | Minggu 13-14 |
 | Phase 8 | Layer 36-40 (IR, Zero Trust, Web3, Malware, AI/ML) | Minggu 15-16 |
+| Phase 9 | Layer 41-50 (IPv6, LLMNR, SAML, LDAP, CSRF, Redirect, Upload, Takeover, Cache, Smuggling) | Minggu 17-18 |
+| Phase 10 | Layer 51-60 (DNSSEC, Cert, TLS, SCADA, IoT, Compliance, Methodology, OPSEC, Multi-Cloud, Web) | Minggu 19-20 |
 
 ---
 
-## 13. DOKUMENTASI CARA PAKAI
+## 14. DOKUMENTASI CARA PAKAI
 
 ### Setup
 ```bash
@@ -1810,12 +2414,12 @@ make verify-clean
 
 ---
 
-## 14. KESIMPULAN
+## 15. KESIMPULAN
 
-ANGEL adalah platform offensive security tingkat lanjut untuk P0/P1 findings. Platform ini mencakup 40 layer dengan ~1200+ modules, mencakup传统 red team, cloud-native, container, mobile, wireless, social engineering, supply chain, Web3, dan AI/ML. Setiap layer memiliki minimal 5-7 teknik alternatif, fallback otomatis, deteksi environment, adaptasi, edge case handling, resilience, dan recovery.
+ANGEL adalah platform offensive security tingkat lanjut untuk P0/P1 findings. Platform ini mencakup 60 layer dengan ~1800+ modules, mencakup传统 red team, cloud-native, container, mobile, wireless, social engineering, supply chain, Web3, AI/ML, IPv6, SAML/OIDC, LDAP, CSRF, web cache poisoning, HTTP smuggling, SCADA/ICS, IoT, compliance testing, dan OPSEC. Setiap layer memiliki minimal 5-7 teknik alternatif, fallback otomatis, deteksi environment, adaptasi, edge case handling, resilience, dan recovery.
 
 ---
 
-## 15. LEGAL & SAFETY DISCLAIMER
+## 16. LEGAL & SAFETY DISCLAIMER
 
 > **PENTING:** Blueprint ini hanya untuk tujuan pendidikan, penelitian, dan pengujian keamanan yang sah. Dilarang keras menggunakan untuk menyerang sistem tanpa izin tertulis. Pelanggaran dikenakan sanksi pidana dan perdata.
