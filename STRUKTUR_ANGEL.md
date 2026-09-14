@@ -1,4 +1,4 @@
-# ANGEL — BLUEPRINT FINAL v3.0 (LAYER 1-60)
+# ANGEL — BLUEPRINT FINAL v3.1 (LAYER 1-70)
 
 > **Status:** FINAL & EXECUTABLE
 > **Tujuan:** Platform offensive security (red team) untuk engagement resmi.
@@ -2215,7 +2215,362 @@ Clickjacking → Tabnabbing → Prototype Pollution → ALERT
 
 ---
 
-## 10. STATISTIK TOTAL
+## 10. MODUL TAMBAHAN v3.1 (LAYER 61–70)
+
+### 10.1 Memory Corruption
+
+```
+BUFFER_OVERFLOW (8):
+├── stack_overflow     — Stack-based buffer overflow
+├── heap_overflow      — Heap-based buffer overflow
+├── stack_pivot        — Stack pivot / stack smashing
+├── ret2libc           — Return to libc attack
+├── ret2plt            — Return to PLT (GOT overwrite)
+├── ret2win            — Ret2win / CTF-style exploitation
+├── srop               — Sigreturn-oriented programming
+└── blind_overflow     — Blind buffer overflow (no output)
+
+HEAP_EXPLOIT (8):
+├── heap_spray         — Heap spraying
+├── uaf                — Use-after-free
+├── double_free        — Double free
+├── heap_feng_shui     — Heap feng shui
+├── unlink             — Unlink abuse (fastbin/tcache)
+├── poison_null        — Null byte poisoning
+├── house_of_force     — House of Force
+└── house_of_orange    — House of Orange
+
+FORMAT_STRING (4):
+├── format_read        — Format string memory leak
+├── format_write       — Format string arbitrary write
+├── format_overwrite   — GOT overwrite via format string
+└── format_payload     — Format string payload generator
+
+ROP_SHELLCODE (6):
+├── rop_chain          — ROP chain construction
+├── rop_gadget         — Gadget finder (ROPgadget, ropper)
+├── ret2csu            — __libc_csu_init abuse
+├── ret2dl_resolve     — ret2dl_resolve dynamic linker abuse
+├── shellcode_inject   — Shellcode injection (mmap, execve)
+└── shellcode_encode   — Encoder (alpha, unicode, xor)
+
+FALLBACK:
+Stack Overflow → Heap Overflow → UAF → Double Free →
+Format String → ROP Chain → Shellcode → ALERT
+```
+
+---
+
+### 10.2 Deserialization Attacks
+
+```
+JAVA_DESERTOP (6):
+├── ysoserial          — ysoserial gadget chain (CommonsCollections, Spring, etc.)
+├── jndi_inject        — JNDI injection (Log4Shell style)
+├── classloader        — ClassLoader manipulation
+├── dns_exfil          — DNS exfiltration via deserialization
+├── ldap_inject        — LDAP injection via JNDI
+└── rmi_exploit        — RMI remote class loading
+
+PYTHON_DESER (5):
+├── pickle_rce         — Pickle deserialization RCE (cPickle/reduce)
+├── yaml_load          — PyYAML unsafe_load RCE
+├── marshal_load       — Marshal deserialization RCE
+├── shelve_exploit     — Shelve deserialization abuse
+└── jsonpickle         — jsonpickle remote code execution
+
+PHP_DESER (5):
+├── unserialize_rce    — PHP unserialize() exploit
+├── phar_injection     — Phar deserialization (phar://)
+├── magic_method       — __wakeup/__destruct abuse
+├── pop_chain          — POP (Property Oriented Programming) chain
+└── laravel_rce        — Laravel deserialization RCE
+
+DOTNET_DESER (5):
+├── binaryformatter    — BinaryFormatter deserialization
+├── javascriptser      — JavaScriptSerializer exploit
+├── json_net           — Newtonsoft Json.NET Exploit
+├── typeconfusion      — Type confusion deserialization
+└── gadgets_net        — .NET gadget chains (ysoserial.net)
+
+RUBY_DESER (3):
+├── marshal_load       — Marshal.load RCE
+├── yaml_load          — YAML.load RCE
+└── gem_rce            — Gem installation backdoor
+
+FALLBACK:
+Java Gadget → JNDI → Pickle → YAML → PHP Unserialize →
+Phar → .NET BinaryFormatter → Ruby Marshal → ALERT
+```
+
+---
+
+### 10.3 Race Conditions
+
+```
+TOCTOU (5):
+├── file_race          — File creation/deletion race
+├── symlink_race       — Symlink race condition
+├── temp_file_race     — Temporary file race
+├── lock_bypass        — Lock bypass via race
+└── auth_race          — Authentication bypass via race
+
+CONCURRENT_ABUSE (6):
+├── double_spend       — Double-spend attack (payment)
+├── double_submit      — Double-submit (coupon, referral)
+├── concurrent_request │ — Concurrent API request abuse
+├── token_reuse        — Token reuse during race
+├── idor_race          — IDOR via race condition
+└── quota_bypass       — Quota/rate-limit bypass via race
+
+STATE_RACE (5):
+├── state_confusion    — State machine confusion
+├── queue_jump         — Queue jumping
+├── priority_escal     — Priority escalation via race
+├── order_manipulate   — Order manipulation (trading, bidding)
+└── balance_race       — Balance manipulation (deposit/withdraw)
+
+FALLBACK:
+File Race → Symlink Race → Double Spend → Double Submit →
+Concurrent Request → Token Reuse → State Confusion → ALERT
+```
+
+---
+
+### 10.4 GraphQL Deep Attacks
+
+```
+GRAPHQL_ATTACKS (8):
+├── batching_attack    — Query batching to bypass rate limit
+├── depth_abuse        — Deep nested query DoS
+├── alias_attack       — Alias-based query batching
+├── introspection_leak │ — Introspection query data leak
+├── field_duplication  — Field duplication attack
+├── directive_inject   — Directive injection
+├── union_abuse        — Union type confusion
+└── fragment_spread    — Fragment spread DoS
+
+GRAPHQL_EXPLOIT (6):
+├── authz_bypass       — Authorization bypass via introspection
+├── sqli_graphql       — SQL injection via GraphQL arguments
+├── ssrf_graphql       — SSRF via GraphQL resolvers
+├── nosql_graphql      — NoSQL injection via GraphQL
+├── batch_authz_bypass │ — Batch authorization bypass
+└── persisted_query    — Persisted query abuse
+
+GRAPHQL_INFRA (4):
+├── schema_dump        — Full schema extraction
+├── type_enum          — Type enumeration
+├── connection_enum    — Connection/resource enumeration
+└── error_leak         — Error message data leakage
+
+FALLBACK:
+Batching → Depth DoS → Alias → Introspection →
+Field Duplication → Directive Inject → Union Abuse → ALERT
+```
+
+---
+
+### 10.5 Cryptographic Attacks
+
+```
+PADDING_ORACLE (4):
+├── cbc_padding        — CBC padding oracle
+├── cbc_mac_forgery    — CBC-MAC forgery
+├── chosen_ciphertext  — Chosen ciphertext attack
+└── pt_oracle          — Plaintext recovery via oracle
+
+HASH_ATTACKS (5):
+├── length_extension   — Hash length extension (MD5, SHA-1, SHA-256)
+├── collision          — Hash collision (SHA-1 SHAttered)
+├── preimage           — Preimage attack (weak hash)
+├── rainbow_table      — Rainbow table attack
+└── hashcat_online     — Online hash cracking (hashcat)
+
+CRYPTO_ABUSE (7):
+├── weak_random        — Weak PRNG exploitation (Math.random())
+├── bias_random        — Biased random number exploitation
+├── timing_attack      — Timing side-channel on crypto
+├── bleichenbacher     — Bleichenbacher RSA padding oracle
+├── chosen_plaintext   — Chosen plaintext attack
+├── downgrade_crypto   — Protocol downgrade (SSL 3.0, TLS 1.0)
+└── key_reuse          — Key/nonce reuse (AES-GCM, ChaCha20)
+
+CERT_ABUSE (5):
+├── weak_cert          — Weak certificate (MD5 signature)
+├── self_signed_trust  — Self-signed certificate trust
+├── ca_malicious       — Malicious CA certificate
+├── cert_pinning_bypass│ — Certificate pinning bypass
+└── key_compromise     — Private key compromise
+
+FALLBACK:
+Padding Oracle → Length Extension → Collision →
+Rainbow Table → Timing Attack → Bleichenbacher → ALERT
+```
+
+---
+
+### 10.6 Password Reset Vulnerabilities
+
+```
+RESET_BYPASS (7):
+├── token_predict      — Reset token prediction
+├── token_fixation     — Reset token fixation
+├── host_header_inject │ — Host header injection (password reset)
+├── email_injection    — Email header injection (reset link)
+├── response_manipulate│ — Response manipulation
+├── bruteforce_token   — Token brute-force
+└── token_no_expire    — Token without expiration
+
+ENUM_ORACLE (4):
+├── user_enum_reset    — User enumeration via reset
+├── timing_enum        — Timing-based enumeration
+├── error_message      — Error message information leak
+└── response_diff      — Response difference analysis
+
+RESET_ABUSE (5):
+├── account_takeover   — Account takeover via reset
+├── password_change    — Password change hijack
+├── mfa_bypass_reset   — MFA bypass via reset
+├── oauth_reset        — OAuth token reset abuse
+└── sso_reset          — SSO session reset abuse
+
+FALLBACK:
+Token Prediction → Token Fixation → Host Header →
+Email Injection → Brute-force Token → Direct Reset → ALERT
+```
+
+---
+
+### 10.7 Business Logic Deep
+
+```
+LOGIC_BYPASS (7):
+├── price_manipulate   — Price manipulation (negative qty, overflow)
+├── quantity_bypass    — Quantity limit bypass
+├── coupon_abuse       — Coupon stacking/exploitation
+├── referral_abuse     — Referral program abuse
+├── promo_abuse        — Promotion/exploit abuse
+├── loyalty_abuse      — Loyalty points manipulation
+└── giftcard_abuse     — Gift card exploitation
+
+PAYMENT_ABUSE (6):
+├── payment_bypass     — Payment bypass (race condition)
+├── idor_payment       — IDOR on payment endpoint
+├── currency_confusion │ — Currency conversion manipulation
+├── discount_bypass    — Discount bypass
+├── tax_evasion        — Tax calculation bypass
+└── refund_abuse       — Refund exploitation
+
+FLOW_BYPASS (6):
+├── step_skip          — Workflow step skipping
+├── state_manipulate   — State machine manipulation
+├── order_manipulate   — Order sequence manipulation
+├── cart_poison        — Cart manipulation
+├── checkout_bypass    — Checkout flow bypass
+└── verification_bypass│ — Verification step bypass
+
+FALLBACK:
+Price Manip → Quantity Bypass → Coupon Abuse →
+Referral Abuse → Payment Bypass → IDOR →
+Step Skip → State Manipulate → ALERT
+```
+
+---
+
+### 10.8 gRPC/Protobuf Attacks
+
+```
+GRPC_ATTACKS (6):
+├── reflection_leak    — gRPC reflection (full API dump)
+├── bidi_flood         — Bidirectional streaming flood
+├── unary_flood        — Unary RPC flood
+├── metadata_leak      — Metadata information leak
+├── tls_bypass         — gRPC TLS bypass
+└── deadline_abuse     — Deadline/timeout abuse
+
+GRPC_EXPLOIT (5):
+├── authz_bypass       — Authorization bypass via gRPC
+├── injection_grpc     — Injection via gRPC arguments
+├── ssrf_grpc          — SSRF via gRPC resolvers
+├── enum_grpc          — Resource enumeration via gRPC
+└── proto_poison       — Protobuf message poisoning
+
+PROTOBUF_ABUSE (4):
+├── unknown_field     — Unknown field injection
+├── oneof_abuse        — Oneof field confusion
+├── repeated_overflow  — Repeated field overflow
+└── any_type_abuse     — Any type URL abuse
+
+FALLBACK:
+Reflection Leak → Bidirectional Flood → Unary Flood →
+Metadata Leak → TLS Bypass → Unknown Field → ALERT
+```
+
+---
+
+### 10.9 VLAN Hopping
+
+```
+VLAN_ATTACKS (5):
+├── double_tag         — Double-tagging (802.1Q) attack
+├── dtp_spoof          — DTP (Dynamic Trunking Protocol) spoofing
+├── native_vlan_abuse  — Native VLAN manipulation
+├── trunk_negotiate    — Trunk negotiation
+└── vlan_shift         — VLAN tag shifting
+
+VLAN_EXPLOIT (4):
+├── inter_vlan         — Inter-VLAN routing attack
+├── private_vlan       — Private VLAN bypass
+├── management_vlan    — Management VLAN access
+└── voice_vlan         — Voice VLAN exploitation
+
+VLAN_DEFENSE_BYPASS (4):
+├── acl_bypass         — ACL bypass via VLAN
+├── firewall_hop       — Firewall hop via VLAN
+├── segmentation_bypass│ — Network segmentation bypass
+└── monitoring_evasion │ — Monitoring evasion via VLAN
+
+FALLBACK:
+Double Tag → DTP Spoof → Native VLAN → Trunk Negotiate →
+VLAN Shift → Inter-VLAN → Private VLAN → ALERT
+```
+
+---
+
+### 10.10 ARP/DHCP Spoofing
+
+```
+ARP_ATTACKS (5):
+├── arp_spoof          — ARP cache poisoning (Ettercap, arpspoof)
+├── arp_replay         — ARP replay attack
+├── arp_dos            — ARP flood DoS
+├── arp_table_poison   — ARP table manipulation
+└── gratuitous_arp     — Gratuitous ARP spoofing
+
+DHCP_ATTACKS (5):
+├── dhcp_starvation    — DHCP address starvation
+├── dhcp_spoof         — Rogue DHCP server
+├── dhcp_option_abuse  — DHCP option manipulation
+├── dhcp_rogue         — DHCP rogue reply (NAK/ACK)
+└── dhcp_rebind        — DHCP rebinding attack
+
+MITM_EXPLOIT (6):
+├── mitm_arp           — ARP-based man-in-the-middle
+├── mitm_dhcp          — DHCP-based man-in-the-middle
+├── mitm_dns           — DNS hijacking via ARP/DHCP
+├── sslstrip           — SSLStrip downgrade
+├── session_hijack     — Session hijacking via MITM
+└── credential_harvest │ — Credential harvesting via MITM
+
+FALLBACK:
+ARP Spoof → DHCP Starvation → Rogue DHCP →
+MITM ARP → SSLStrip → Session Hijack → ALERT
+```
+
+---
+
+## 11. STATISTIK TOTAL
 
 | Domain | Modul |
 |--------|-------|
@@ -2278,11 +2633,21 @@ Clickjacking → Tabnabbing → Prototype Pollution → ALERT
 | OPSEC Procedures | 20+ modules (6 comms, 6 data, 8 ops) |
 | Multi-Cloud | 12+ modules (6 cross-cloud, 6 cloud-native) |
 | Web Misc | 10+ modules (host header, SMS, email, log, header, response, session, clickjacking, tabnabbing, prototype) |
-| **TOTAL** | **~1800+ modules** |
+| Memory Corruption | 26+ modules (8 buffer, 8 heap, 4 format, 6 ROP/shellcode) |
+| Deserialization | 24+ modules (6 Java, 5 Python, 5 PHP, 5 .NET, 3 Ruby) |
+| Race Conditions | 16+ modules (5 TOCTOU, 6 concurrent, 5 state) |
+| GraphQL Deep | 18+ modules (8 attack, 6 exploit, 4 infra) |
+| Cryptographic Attacks | 21+ modules (4 padding, 5 hash, 7 crypto, 5 cert) |
+| Password Reset | 16+ modules (7 bypass, 4 enum, 5 abuse) |
+| Business Logic | 19+ modules (7 logic, 6 payment, 6 flow) |
+| gRPC/Protobuf | 15+ modules (6 attack, 5 exploit, 4 protobuf) |
+| VLAN Hopping | 13+ modules (5 attack, 4 exploit, 4 defense bypass) |
+| ARP/DHCP Spoofing | 16+ modules (5 ARP, 5 DHCP, 6 MITM) |
+| **TOTAL** | **~2100+ modules** |
 
 ---
 
-## 11. PRINSIP DASAR
+## 12. PRINSIP DASAR
 
 1. **"No copy-paste"** — tiap baris ditulis sendiri.
 2. **"If I can't explain every line, it doesn't go in"**
@@ -2297,7 +2662,7 @@ Clickjacking → Tabnabbing → Prototype Pollution → ALERT
 
 ---
 
-## 12. CHECKLIST FINAL
+## 13. CHECKLIST FINAL
 
 | # | Layer | Status |
 |---|-------|--------|
@@ -2361,10 +2726,20 @@ Clickjacking → Tabnabbing → Prototype Pollution → ALERT
 | 58 | OPSEC Procedures (6 comms + 6 data + 8 ops) | [ ] |
 | 59 | Multi-Cloud (6 cross-cloud + 6 cloud-native) | [ ] |
 | 60 | Web Misc (10 web attacks) | [ ] |
+| 61 | Memory Corruption (8 buffer + 8 heap + 4 format + 6 ROP) | [ ] |
+| 62 | Deserialization (6 Java + 5 Python + 5 PHP + 5 .NET + 3 Ruby) | [ ] |
+| 63 | Race Conditions (5 TOCTOU + 6 concurrent + 5 state) | [ ] |
+| 64 | GraphQL Deep (8 attack + 6 exploit + 4 infra) | [ ] |
+| 65 | Cryptographic Attacks (4 padding + 5 hash + 7 crypto + 5 cert) | [ ] |
+| 66 | Password Reset Vulns (7 bypass + 4 enum + 5 abuse) | [ ] |
+| 67 | Business Logic Deep (7 logic + 6 payment + 6 flow) | [ ] |
+| 68 | gRPC/Protobuf (6 attack + 5 exploit + 4 protobuf) | [ ] |
+| 69 | VLAN Hopping (5 attack + 4 exploit + 4 defense bypass) | [ ] |
+| 70 | ARP/DHCP Spoofing (5 ARP + 5 DHCP + 6 MITM) | [ ] |
 
 ---
 
-## 13. TIMELINE PENGERJAAN
+## 14. TIMELINE PENGERJAAN
 
 | Phase | Fokus | Target |
 |-------|-------|--------|
@@ -2378,10 +2753,14 @@ Clickjacking → Tabnabbing → Prototype Pollution → ALERT
 | Phase 8 | Layer 36-40 (IR, Zero Trust, Web3, Malware, AI/ML) | Minggu 15-16 |
 | Phase 9 | Layer 41-50 (IPv6, LLMNR, SAML, LDAP, CSRF, Redirect, Upload, Takeover, Cache, Smuggling) | Minggu 17-18 |
 | Phase 10 | Layer 51-60 (DNSSEC, Cert, TLS, SCADA, IoT, Compliance, Methodology, OPSEC, Multi-Cloud, Web) | Minggu 19-20 |
+| Phase 11 | Layer 61-62 (Memory Corruption, Deserialization) | Minggu 21-22 |
+| Phase 12 | Layer 63-64 (Race Conditions, GraphQL) | Minggu 23-24 |
+| Phase 13 | Layer 65-67 (Crypto, Password Reset, Business Logic) | Minggu 25-26 |
+| Phase 14 | Layer 68-70 (gRPC, VLAN, ARP/DHCP) | Minggu 27-28 |
 
 ---
 
-## 14. DOKUMENTASI CARA PAKAI
+## 15. DOKUMENTASI CARA PAKAI
 
 ### Setup
 ```bash
@@ -2414,12 +2793,12 @@ make verify-clean
 
 ---
 
-## 15. KESIMPULAN
+## 16. KESIMPULAN
 
-ANGEL adalah platform offensive security tingkat lanjut untuk P0/P1 findings. Platform ini mencakup 60 layer dengan ~1800+ modules, mencakup传统 red team, cloud-native, container, mobile, wireless, social engineering, supply chain, Web3, AI/ML, IPv6, SAML/OIDC, LDAP, CSRF, web cache poisoning, HTTP smuggling, SCADA/ICS, IoT, compliance testing, dan OPSEC. Setiap layer memiliki minimal 5-7 teknik alternatif, fallback otomatis, deteksi environment, adaptasi, edge case handling, resilience, dan recovery.
+ANGEL adalah platform offensive security tingkat lanjut untuk P0/P1 findings. Platform ini mencakup 70 layer dengan ~2100+ modules, mencakup传统 red team, cloud-native, container, mobile, wireless, social engineering, supply chain, Web3, AI/ML, IPv6, SAML/OIDC, LDAP, CSRF, web cache poisoning, HTTP smuggling, SCADA/ICS, IoT, compliance testing, OPSEC, memory corruption, deserialization, race conditions, GraphQL, cryptography, password reset, business logic, gRPC, VLAN hopping, dan ARP/DHCP spoofing. Setiap layer memiliki minimal 5-7 teknik alternatif, fallback otomatis, deteksi environment, adaptasi, edge case handling, resilience, dan recovery.
 
 ---
 
-## 16. LEGAL & SAFETY DISCLAIMER
+## 17. LEGAL & SAFETY DISCLAIMER
 
 > **PENTING:** Blueprint ini hanya untuk tujuan pendidikan, penelitian, dan pengujian keamanan yang sah. Dilarang keras menggunakan untuk menyerang sistem tanpa izin tertulis. Pelanggaran dikenakan sanksi pidana dan perdata.
