@@ -1,10 +1,34 @@
-# ANGEL — BLUEPRINT FINAL v3.1 (LAYER 1-70)
+# ANGEL — BLUEPRINT FINAL v3.2 (LAYER 1-70)
 
 > **Status:** FINAL & EXECUTABLE
 > **Tujuan:** Platform offensive security (red team) untuk engagement resmi.
 > **Standar:** P0/P1, Hard/Expert, Full Attack, No Demo, No Placeholder.
 > **Prinsip:** "No copy-paste" — tiap baris ditulis sendiri.
 > **Legalitas:** Hanya digunakan pada sistem yang telah diizinkan.
+
+---
+
+## DAFTAR ISI
+
+1. PENDAHULUAN
+2. ARSITEKTUR
+3. MODUL INTI (LAYER 1–5)
+4. MODUL LANJUTAN (LAYER 6–10)
+5. MODUL OFENSIF (LAYER 11–15)
+6. INFRASTRUKTUR & PELAPORAN (LAYER 16–21)
+7. MODUL TAMBAHAN (LAYER 22–25)
+8. MODUL TAMBAHAN v2 (LAYER 26–40)
+9. MODUL TAMBAHAN v3 (LAYER 41–60)
+10. MODUL TAMBAHAN v3.1 (LAYER 61–70)
+11. STATISTIK TOTAL
+12. PRINSIP DASAR
+13. CHECKLIST FINAL
+14. TIMELINE PENGERJAAN
+15. DOKUMENTASI CARA PAKAI
+16. EDGE CASE MATRIX — 70 LAYERS
+17. TEST SCENARIOS — 70 LAYERS
+18. KESIMPULAN
+19. LEGAL & SAFETY DISCLAIMER
 
 ---
 
@@ -33,6 +57,31 @@ ANGEL adalah platform offensive security yang dirancang untuk menguji ketahanan 
 - **Sleep Masking:** Ekko, Foliage, Cronos, DeathSleep
 - **Syscall:** Hell's Gate, Halo's Gate, Tartarus Gate, FreshyCalls, SysWhispers3
 
+### 1.6 Struktur Repository (Monorepo)
+
+Seluruh modul ANGEL hidup dalam satu monorepo agar dependency, build, dan release terpusat:
+
+```
+ANGEL/
+├── c2/                    # Inti C2 (implant, teamserver, malleable profile)
+├── orchestrator/          # LangGraph orchestration + Brain (intent classifier)
+├── gateway/               # API Gateway (.NET 10): auth, RBAC, rate limit
+├── frontend/              # Angular dashboard, agent console, report viewer
+├── infra/                 # Terraform + Ansible: VPS, WireGuard, firewall
+├── modules/               # Semua modul ofensif per layer (1–70)
+│   ├── layer01-05/        # C2 core, decoy, SQLi, NoSQL, DB post-exploit
+│   ├── layer06-10/
+│   ├── ...
+│   └── layer66-70/
+├── scripts/               # Automation, build, lint, release pipeline
+├── tests/                 # Test scenarios TC-001..TC-1346 (Section 17)
+├── docs/                  # Dokumentasi operasional + report template
+├── .env.example           # Template konfigurasi environment
+└── Makefile               # Entry point: make build / make test / make release
+```
+
+> **Prinsip:** modul di `modules/layerNN–MM/` tidak pernah menyisipkan kode ke komponen inti — seluruh interaksi lewat event bus (Section 2.1).
+
 ---
 
 ## 2. ARSITEKTUR
@@ -48,21 +97,21 @@ ANGEL adalah platform offensive security yang dirancang untuk menguji ketahanan 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│              LAYER 5: FRONTEND (Angular)                           │
+│              TIER 5: FRONTEND (Angular)                            │
 │  - Dashboard (operator monitoring)                                 │
 │  - Agent console (task submission, real-time logs)                 │
 │  - Report viewer (evidence, chain-of-custody)                      │
 └─────────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────────────┐
-│              LAYER 4: API GATEWAY (.NET 10)                        │
+│              TIER 4: API GATEWAY (.NET 10)                         │
 │  - REST API + WebSocket untuk frontend                             │
 │  - Authentication + RBAC                                           │
 │  - Rate limiting + request validation                              │
 └─────────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────────────┐
-│              LAYER 3: ORCHESTRATOR (LangGraph)                     │
+│              TIER 3: ORCHESTRATOR (LangGraph)                      │
 │  - Intent classifier → route ke agent                              │
 │  - Multi-agent parallelism (Fireteam mode)                         │
 │  - State management (SQLite/PostgreSQL)                            │
@@ -70,7 +119,7 @@ ANGEL adalah platform offensive security yang dirancang untuk menguji ketahanan 
 └─────────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────────────┐
-│              LAYER 2: C2 FRAMEWORK (Go/Rust)                       │
+│              TIER 2: C2 FRAMEWORK (Go/Rust)                        │
 │  - Implant (Windows/Linux/macOS/Android)                           │
 │  - Teamserver (HTTP/HTTPS/WebSocket/DNS/SMB listeners)             │
 │  - Malleable C2 Profile (Teams/Office365/Google mimicry)           │
@@ -79,12 +128,30 @@ ANGEL adalah platform offensive security yang dirancang untuk menguji ketahanan 
 └─────────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────────────┐
-│              LAYER 1: INFRASTRUCTURE (Terraform/Ansible)            │
+│              TIER 1: INFRASTRUCTURE (Terraform/Ansible)             │
 │  - VPS provisioning + WireGuard + firewall                         │
 │  - Functional Separation (4 VPC nodes)                             │
 │  - Nginx redirector (URI routing, decoy)                           │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+> **CATATAN MAPPING LAYER/TIER:** Diagram di atas menampilkan **TIER komponen platform** (Infra → Frontend, TIER 1–5).
+> Nomor **LAYER** di seluruh dokumen ini (Section 3 dst.) adalah **nomor modul/kategori modul** (LAYER 1–70), bukan tingkatan komponen.
+> Tabel berikut memetakan kategori modul ke tier komponen tempat modul tersebut dieksekusi:
+
+| Kategori Layer (Section 3–10) | Tier Komponen Eksekusi          | Contoh Modul                                    |
+|-------------------------------|---------------------------------|-------------------------------------------------|
+| LAYER 1–5 (Modul Inti C2)     | TIER 2 (C2 Framework)           | C2_CORE, C2_DNS, C2_SMB, THE_DECOY              |
+| LAYER 6–10 (Modul Lanjutan)   | TIER 2 (C2 Framework)           | C2_WIREGUARD, IMPLANT_EDR, EXFIL_SMTP           |
+| LAYER 11–15 (Modul Ofensif)   | TIER 2/3 (C2/Orchestrator)      | SQLI_UNION, NO_SQL_INJECT, RCE_MEMORY            |
+| LAYER 16–21 (Infra & Pelaporan)| TIER 1 (Infrastructure)         | INFRA_PROXY, RAPORTER, CHAIN_CUSTODY            |
+| LAYER 22–25 (Modul Tambahan)  | TIER 2/3 (C2/Orchestrator)      | ESCAL_AD_CTP, PRIVESC_SSP                       |
+| LAYER 26–40 (Modul Tambahan v2)| TIER 3/4 (Orchestrator/Gateway) | CLOUD_AWS-DEEP, WEB_FW_BYPASS, APP_LFI         |
+| LAYER 41–60 (Modul Tambahan v3)| TIER 3/4 (Orchestrator/Gateway) | NET_IPV6, WEB_CSRF, CLOUD_MULTI                 |
+| LAYER 61–70 (Modul Tambahan v3.1)| TIER 3/4 (Orchestrator/Gateway)| MEM_CORRUPT, GRAPHQL_DEEP, NET_VLAN            |
+| Orchestrator / Brain           | TIER 3 (Orchestrator)           | ORCH_INTENT, AGENT_LANGGRAPH                    |
+| API Gateway (auth/RBAC)        | TIER 4 (API Gateway)            | GATEWAY_AUTH, GATEWAY_RBAC                      |
+| Dashboard / Monitoring         | TIER 5 (Frontend)               | FRONT_DASHBOARD, FRONT_AGENT_CONSOLE            |
 
 ### 2.3 Mekanisme Fallback Otomatis
 
@@ -3396,19 +3463,48 @@ GCP (16):
     └── Modify data
     DETECTION: Firestore access
     BYPASS: Use alternate method
+
+13. GCP_LOGGING
+    WHAT: Purge/mutate audit logs & sink
+    HOW:
+    ├── logging.sinks.delete → hapus log sink
+    ├── Clear log entries (blind the blue team)
+    └── Reconfigure sink ke attacker-controlled export
+    DETECTION: Sink deletion + audit log gap
+    BYPASS: Direct API (cloudresourcemanager) bila console terblokir
+
+14. GCP_AUDIT_CONFIG
+    WHAT: Modify auditConfigs untuk membutakan audit trail
+    HOW:
+    ├── Modify auditConfigs pada project/folder/organization
+    ├── Set service data access audit ke empty/DISABLED
+    └── Lakukan eksfiltrasi tanpa jejak audit
+    DETECTION: Perubahan auditConfigs (delta audit)
+    BYPASS: Restore auditConfigs + re-enable setelah aksi selesai
+
+15. GCP_ORGANIZATION
+    WHAT: Bobol kebijakan level organization
+    HOW:
+    ├── orgPolicy.disable → nonaktifkan constraint
+    ├── resourcemanager.organizations.getIamPolicy → baca policy
+    └── Escalate ke folder/project turunan
+    DETECTION: Org policy disable + IAM drift
+    BYPASS: Target folder-level policy bila org-level terblokir
+
+16. GCP_PROJECT
+    WHAT: Kuasai project resources
+    HOW:
+    ├── resourcemanager.projects.update → ubah project metadata
+    ├── resourcemanager.projects.move → pindahkan project ke container attacker
+    └── Re-point billing/key project untuk eksfiltrasi
+    DETECTION: Project metadata change
+    BYPASS: Use alternate method
 ```
 
 **Fallback:**
+```
 AWS IAM → Lambda → S3 → EC2 → Azure AD → Key Vault →
-GCP IAM → Compute → Storage → ALERT
-├── gcp_logging        — logging.sinks.delete
-├── gcp_audit_config   — auditConfigs modification
-├── gcp_organization   — orgPolicy.disable
-└── gcp_project        — resourcemanager.projects.update
-
-FALLBACK:
-IAM Privesc → Lambda → S3 → EC2 → Secrets Manager →
-CloudTrail → GuardDuty → VPC Flow → ALERT
+GCP IAM → Compute → Storage → GCP Logging → GCP Audit → ALERT
 ```
 
 ---
@@ -4105,7 +4201,7 @@ PACKAGE_MANAGER (4):
    DETECTION: Repository audit
    BYPASS: Use alternate method
 
-BUILD_SYSTEM (4):
+BUILD_SYSTEM (6):
 
 1. MAKEFILE
    WHAT: Malicious Makefile
@@ -4146,20 +4242,31 @@ BUILD_SYSTEM (4):
    └── Access system
    DETECTION: MSBuild audit
    BYPASS: Use alternate method
+
+5. DOCKERFILE
+   WHAT: Malicious Dockerfile (base image injection)
+   HOW:
+   ├── Inject RUN/ENTRYPOINT/CMD ke base image
+   ├── docker build executes payload
+   ├── Backdoor baked ke built image
+   └── Container runs kekompromi
+   DETECTION: Image scanning (Trivy, Grype, Snyk Container)
+   BYPASS: Use alternate method
+
+6. PRE_COMMIT
+   WHAT: Malicious .pre-commit-config.yaml / hook script
+   HOW:
+   ├── Inject malicious script ke pre-commit hook
+   ├── Developer commits → hook executes
+   ├── Backdoor exfil / keystroke capture
+   └── Data exfiltrated via Git push
+   DETECTION: Hook script audit, pre-commit output inspection
+   BYPASS: Use alternate method
 ```
 
-**Fallback:**
+**Fallback Chain:**
 Dependency Poison → CI/CD Compromise → Package Manager →
-Build System → ALERT
-├── makefile           — Malicious Makefile
-├── cmake              — Malicious CMakeLists.txt
-├── dockerfile         — Malicious Dockerfile
-└── pre_commit         — Malicious pre-commit hook
-
-FALLBACK:
-npm Poison → PyPI Poison → GitHub Actions → GitLab CI →
-Jenkins → Dockerfile → Makefile → ALERT
-```
+Build System (Makefile/CMake/Gradle/MSBuild/Dockerfile/Pre-commit) → ALERT
 
 ---
 
@@ -6532,6 +6639,7 @@ AI_SAFETY_BYPASS (5):
 FALLBACK:
 Model Steal → Adversarial Example → Prompt Injection →
 Data Poison → Jailbreak → API Abuse → Safety Bypass → ALERT
+```
 
 ---
 
@@ -7484,7 +7592,7 @@ MITM ARP → SSLStrip → Session Hijack → ALERT
 | Cloud Deep | 54+ modules (20 AWS, 18 Azure, 16 GCP) |
 | Social Engineering | 23+ modules (8 phishing, 5 pretexting, 6 OSINT, 4 campaign) |
 | Wireless | 22+ modules (8 WiFi, 5 BT, 4 RFID/NFC, 5 tools) |
-| Supply Chain | 20+ modules (6 dependency, 6 CI/CD, 4 package, 4 build) |
+| Supply Chain | 22+ modules (6 dependency, 6 CI/CD, 4 package, 6 build) |
 | API Security | 24+ modules (8 auth, 6 business logic, 5 injection) |
 | Mobile Deep | 26+ modules (10 iOS, 10 Android, 6 universal) |
 | Physical Security | 21+ modules (5 USB, 4 lock, 3 badge, 4 enum, 5 tools) |
@@ -7525,6 +7633,7 @@ MITM ARP → SSLStrip → Session Hijack → ALERT
 | gRPC/Protobuf | 15+ modules (6 attack, 5 exploit, 4 protobuf) |
 | VLAN Hopping | 13+ modules (5 attack, 4 exploit, 4 defense bypass) |
 | ARP/DHCP Spoofing | 16+ modules (5 ARP, 5 DHCP, 6 MITM) |
+| Test Scenarios | 1346 test cases (TC-001 – TC-1346, semua 70 layer) |
 | **TOTAL** | **~2100+ modules** |
 
 ---
@@ -7577,7 +7686,7 @@ MITM ARP → SSLStrip → Session Hijack → ALERT
 | 27 | Cloud Deep (20 AWS + 18 Azure + 16 GCP) | [ ] |
 | 28 | Social Engineering (8 phishing + 5 pretexting + 6 OSINT + 4 campaign) | [ ] |
 | 29 | Wireless (8 WiFi + 5 BT + 4 RFID/NFC + 5 tools) | [ ] |
-| 30 | Supply Chain (6 dependency + 6 CI/CD + 4 package + 4 build) | [ ] |
+| 30 | Supply Chain (6 dependency + 6 CI/CD + 4 package + 6 build) | [ ] |
 | 31 | API Security Deep (8 auth + 6 business + 5 injection) | [ ] |
 | 32 | Mobile Deep (10 iOS + 10 Android + 6 universal) | [ ] |
 | 33 | Physical Security (5 USB + 4 lock + 3 badge + 4 enum + 5 tools) | [ ] |
@@ -9082,17 +9191,668 @@ LAYER 40 - AI/ML ATTACKS:
 ├── TC-869  Full AI/ML chain                                 → Full chain success
 ```
 
-### Layer 41-70: Summary (all have test scenarios above)
+### Layer 41: IPv6 Attacks
 
 ```
-ALL LAYERS 41-70: Test scenarios included in their respective edge case matrices above.
+LAYER 41 - IPV6 ATTACKS:
+├── TC-870  NDP spoofing                         → MITM prefix success
+├── TC-871  RA spoofing                          → False gateway route
+├── TC-872  DAD attack                           → Kill neighbor reachability
+├── TC-873  IPv6 fragmentation                   → IDS evade + reassembly bypass
+├── TC-874  Extension header chain               → Firewall bypass
+├── TC-875  SLAAC attack                         → Rogue prefix adoption
+├── TC-876  AAAA DNS spoof                       → Traffic hijack
+├── TC-877  6to4/6in4 tunnel                     → Legacy NAT bypass
+├── TC-878  IPv6 firewall bypass                 → Filter bypass
+├── TC-879  IPv4→IPv6 relay bypass               → Dual-stack blind spot
+├── TC-880  NDP MITM                             → Session hijack
+├── TC-881  Rogue router advertisement           → Default route takeover
+├── TC-882  DHCPv6 spoofing                      → Attacker DNS/gateway
+└── TC-883  Full IPv6 chain                      → Full chain success
+```
+
+### Layer 42: mDNS/LLMNR/NBT-NS
+
+```
+LAYER 42 - MDNS/LLMNR/NBT-NS:
+├── TC-884  mDNS spoofing                        → Host resolution hijack
+├── TC-885  mDNS cache poisoning                 → Poisoned answer cached
+├── TC-886  LLMNR poisoning                      → Hash capture
+├── TC-887  NBT-NS poisoning                     → NetBIOS hijack
+├── TC-888  WPAD abuse                           → PAC proxy MITM
+├── TC-889  DNS rebinding                        → Trust boundary bypass
+├── TC-890  Responder relay                      → NTLM relay to SMB
+├── TC-891  SMB hash relay                       → Remote code execution
+├── TC-892  LLMNR→NBT fallback                   → Multi-protocol capture
+├── TC-893  mDNS TTL manipulation                → Persist poisoned cache
+├── TC-894  NBT null session                     → Unauthenticated enum
+├── TC-895  Name resolution MITM                 → Traffic intercept
+├── TC-896  WPAD proxy MITM                      → HTTPS strip attempt
+├── TC-897  Multi-protocol combo                 → Credential reuse
+├── TC-898  Name service sniffing                → Credential leak detect
+└── TC-899  Full mDNS/LLMNR/NBT chain            → Full chain success
+```
+
+### Layer 43: SAML/OIDC
+
+```
+LAYER 43 - SAML/OIDC:
+├── TC-900  SAML assertion tampering             → Spoofed claim accepted
+├── TC-901  XML signature wrapping               → Signature bypass
+├── TC-902  SAML response replay                 → Re-auth accepted
+├── TC-903  SAML encryption downgrade            → Plaintext read
+├── TC-904  Unsigned assertion                   → Assertion accepted
+├── TC-905  IDP confusion                        → Cross-IDP accepted
+├── TC-906  OIDC authorization code flow         → Token exchange
+├── TC-907  OIDC token exchange abuse            → Privilege escalation
+├── TC-908  OIDC nonce reuse                     → Replay accepted
+├── TC-909  OIDC claim manipulation              → Role claim forged
+├── TC-910  OAuth state confusion                → CSRF login
+├── TC-911  JWT alg confusion                    → Forged token
+├── TC-912  JWT kid injection                    → Key confusion
+├── TC-913  Cross-tenant token                   → Tenant hop
+├── TC-914  Session fixation                     → Pre-auth hijack
+└── TC-915  Full SAML/OIDC chain                 → Full chain success
+```
+
+### Layer 44: LDAP Injection
+
+```
+LAYER 44 - LDAP INJECTION:
+├── TC-916  LDAP filter boolean                  → Auth bypass
+├── TC-917  LDAP blind                           → Attribute extraction
+├── TC-918  LDAP NTLM relay                      → Internal relay
+├── TC-919  LDAPS MITM                           → Plaintext cred capture
+├── TC-920  Attribute injection                  → Group membership add
+├── TC-921  Wildcard filter                      → Broad enumeration
+├── TC-922  Explicit base bypass                 → Restricted base skip
+├── TC-923  Unauthenticated bind                 → Write access
+├── TC-924  LDAP ping                            → Kerberoast relay
+├── TC-925  LDAP modify abuse                    → Object modification
+└── TC-926  Full LDAP chain                      → Full chain success
+```
+
+### Layer 45: CSRF
+
+```
+LAYER 45 - CSRF:
+├── TC-927  CSRF token missing                   → State change accepted
+├── TC-928  CSRF token predictable               → Forged token
+├── TC-929  CSRF token reuse                     → Replay change
+├── TC-930  CSRF JSON content type               → JSON body attack
+├── TC-931  CSRF state-changing GET              → GET trigger
+├── TC-932  CSRF multipart                       → Boundary bypass
+├── TC-933  CSRF SameSite bypass                 → Subdomain cookie
+├── TC-934  Login CSRF                           → Account takeover
+├── TC-935  CSRF OAuth login state               → Victim OAuth bind
+├── TC-936  CSRF chained with XSS                → Full takeover
+└── TC-937  Full CSRF chain                      → Full chain success
+```
+
+### Layer 46: Open Redirect
+
+```
+LAYER 46 - OPEN REDIRECT:
+├── TC-938  Parameter redirect                   → Off-domain redirect
+├── TC-939  Header-based redirect                → Host header abuse
+├── TC-940  Meta refresh                         → Redirect execution
+├── TC-941  javascript: URL                      → XSS via redirect
+├── TC-942  data: URL                            → HTML injection
+├── TC-943  Protocol-relative //                 → Scheme confusion
+├── TC-944  CRLF in redirect                     → Response splitting
+├── TC-945  OAuth token leak redirect            → Token exfil
+├── TC-946  file:// redirect                     → Local file read
+└── TC-947  Full redirect chain                  → Full chain success
+```
+
+### Layer 47: File Upload Bypass
+
+```
+LAYER 47 - FILE UPLOAD BYPASS:
+├── TC-948  Double extension bypass              → Extension bypass
+├── TC-949  MIME spoof                           → Content sniff bypass
+├── TC-950  Magic bytes polyglot                 → Signature evade
+├── TC-951  .htaccess upload                     → Config override
+├── TC-952  XML/SVG XSS                          → Stored XSS
+├── TC-953  EXIF injection                       → Payload in EXIF
+├── TC-954  Path traversal filename              → Overwrite arbitrary file
+├── TC-955  Null-byte filename                   → Truncation bypass
+├── TC-956  Upload to webroot                    → Direct RCE
+├── TC-957  Image polyglot                       → Dual-file execute
+├── TC-958  Content-type confusion               → Header confusion
+├── TC-959  Size/DoS                             → Resource exhaustion
+└── TC-960  Full upload chain                    → Full chain success
+```
+
+### Layer 48: Subdomain Takeover
+
+```
+LAYER 48 - SUBDOMAIN TAKEOVER:
+├── TC-961  CNAME expired domain                → Takeover
+├── TC-962  Dangling A record                   → Re-register A/B
+├── TC-963  AWS S3 bucket                       → Bucket takeover
+├── TC-964  Azure blob                          → Container takeover
+├── TC-965  GitHub Pages                        → CNAME takeover
+├── TC-966  Heroku app                          → App takeover
+├── TC-967  Shopify/Stripe                      → CDN takeover
+├── TC-968  Dangling NS                         → Zone takeover
+├── TC-969  Wildcard CNAME                      → Wildcard capture
+├── TC-970  Expired cert DNS                    → Cert alignment bypass
+├── TC-971  ALIAS record                        → DNS role confusion
+├── TC-972  Expired registrar                   → Domain re-claim
+├── TC-973  Enumeration pivot                   → Fresh registrations
+├── TC-974  Cookie scope takeover               → Session submission
+└── TC-975  Full takeover chain                 → Full chain success
+```
+
+### Layer 49: Web Cache Poisoning
+
+```
+LAYER 49 - WEB CACHE POISONING:
+├── TC-976  Unkeyed header poisoning            → Poisoned cache
+├── TC-977  Cache key normalization             → Key confusion
+├── TC-978  Cache-Control manipulation          → Bypass cache fresh
+├── TC-979  X-Forwarded-Host                    → Tailored poison
+├── TC-980  Duplicate parameter                 → Key split
+├── TC-981  Cookie-based cache poison           → Personalized splice
+├── TC-982  Extension-based poison              → Static serve
+├── TC-983  Web cache deception                 → Private page leak
+├── TC-984  Time-based poisoning                → Delayed cache fill
+├── TC-985  Cache purge via method              → Controlled purge
+└── TC-986  Full cache poison chain             → Full chain success
+```
+
+### Layer 50: HTTP Request Smuggling
+
+```
+LAYER 50 - HTTP REQUEST SMUGGLING:
+├── TC-987  CL.TE                                 → Front-end parse confusion
+├── TC-988  TE.CL                                 → Back-end poison
+├── TC-989  TE.TE obfuscation                     → Obfuscation bypass
+├── TC-990  CL.CL                                 → Dual-length conflict
+├── TC-991  HTTP/2 downgrade smuggling            → Request smuggling
+├── TC-992  Chunk size confusion                  → Desync success
+├── TC-993  CRLF normalization                   → Poison via CRLF
+├── TC-994  Front-end validation bypass           → Cloaked request
+├── TC-995  Request splitting                     → Append request
+├── TC-996  Tunneling smuggling                   → Request queue steal
+└── TC-997  Full smuggling chain                  → Full chain success
+```
+
+### Layer 51: DNSSEC Bypass
+
+```
+LAYER 51 - DNSSEC BYPASS:
+├── TC-998  Zone walking NSEC                    → Full enumeration
+├── TC-999  NSEC3 crack                          → Hash reversal
+├── TC-1000 RRSIG expiry                         → Validation bypass
+├── TC-1001 DNSKEY flood                         → DoS chaos
+├── TC-1002 Algorithm downgrade                  → Weakened signature
+├── TC-1003 Trust anchor poisoning               → Chain break
+├── TC-1004 Zone truncation                      → Response manipulation
+├── TC-1005 Resolver confusion                   → Recursion abuse
+└── TC-1006 Full DNSSEC chain                    → Full chain success
+```
+
+### Layer 52: Certificate Forgery
+
+```
+LAYER 52 - CERTIFICATE FORGERY:
+├── TC-1007 Weak key RSA-512                     → Key factorisation
+├── TC-1008 Prime reuse                          → Key collision
+├── TC-1009 MD5 cert                             → Collision cert
+├── TC-1010 Keygen reuse                         → Predictable key
+├── TC-1011 Rogue CA issuance                    → Forged cert issued
+├── TC-1012 Cert pinning bypass                  → Trust override
+├── TC-1013 LE domain validation abuse           → Cert for victim
+├── TC-1014 Signature timestamp                  → Validity exploit
+├── TC-1015 EV impersonation                     → Extended trust
+├── TC-1016 Trust store backdoor                 → System CA install
+└── TC-1017 Full cert forgery chain              → Full chain success
+```
+
+### Layer 53: TLS 1.3 Attacks
+
+```
+LAYER 53 - TLS 1.3 ATTACKS:
+├── TC-1018 EARLY_DATA 0-RTT replay              → Replay accepted
+├── TC-1019 KeyUpdate manipulation               → Key state confusion
+├── TC-1020 Downgrade sentinel bypass            → Downgrade hidden
+├── TC-1021 Certificate compression bomb         → DoS
+├── TC-1022 ESNI plaintext leak                  → SNI exposure
+├── TC-1023 Session resumption reuse             → Session replay
+├── TC-1024 PSK key reuse                        → Cross-session decrypt
+├── TC-1025 RC4 downgrade                        → Weak cipher forced
+├── TC-1026 Missing SNI/ALPN check               → Protocol confusion
+└── TC-1027 Full TLS 1.3 chain                   → Full chain success
+```
+
+### Layer 54: SCADA/ICS
+
+```
+LAYER 54 - SCADA/ICS:
+├── TC-1028 Modbus register tamper               → Setpoint change
+├── TC-1029 DNP3 spoofed point                   → False telemetry
+├── TC-1030 OPC-UA auth bypass                   → Unauthenticated control
+├── TC-1031 Ethernet/IP CIP                      → Rung state alter
+├── TC-1032 MMS attack                           → Field message spoof
+├── TC-1033 PROFINET injection                   → RT frame abuse
+├── TC-1034 STP loop                             → Network DoS
+├── TC-1035 HMI CRT injection                    → Operator deception
+├── TC-1036 Engineering station                  → Controller access
+├── TC-1037 Fieldbus MITM                        → Command injection
+└── TC-1038 Full SCADA chain                     → Full chain success
+```
+
+### Layer 55: IoT Attacks
+
+```
+LAYER 55 - IOT ATTACKS:
+├── TC-1039 Default credential scan              → Device access
+├── TC-1040 OTA firmware intercept               → Firmware swap
+├── TC-1041 UART shell                           → Bare-metal shell
+├── TC-1042 Insecure MQTT                        → Topic control
+├── TC-1043 CoAP amplification                   → Network DoS
+├── TC-1044 Zigbee rejoin                        → Key exchange abuse
+├── TC-1045 BLE pairing downgrade                → Just-works connect
+├── TC-1046 Device cloud API                     → Device control
+├── TC-1047 SSID/PSK extraction                  → Wi-Fi deep
+├── TC-1048 Insecure telnet                      → Root shell
+├── TC-1049 Firmware signature bypass            → Modified firmware
+├── TC-1050 JTAG debug                           → Memory read
+├── TC-1051 Neighbor discovery spoof             → Gateway hijack
+└── TC-1052 Full IoT chain                       → Full chain success
+```
+
+### Layer 56: Compliance Testing
+
+```
+LAYER 56 - COMPLIANCE TESTING:
+├── TC-1053 PCI scope discovery                  → Scope widened
+├── TC-1054 PCI segmentation test                → CDE isolation breach
+├── TC-1055 PCI encryption-at-rest               → Data-at-rest access
+├── TC-1056 PCI 6.6 WAF test                     → WAF gap
+├── TC-1057 PCI pen test evidence                → Evidence chain
+├── TC-1058 PCI remediation validation           → Re-test loop
+├── TC-1059 HIPAA workstation audit             → ePHI device access
+├── TC-1060 HIPAA ePHI flow                      → Data leak path
+├── TC-1061 HIPAA audit requirement              → Audit gap
+├── TC-1062 HIPAA password/policy                → Weak auth bypass
+├── TC-1063 GDPR data inventory                  → Unknown PII
+├── TC-1064 GDPR DSAR abuse                      → Data exfil via erasure
+├── TC-1065 GDPR right-to-erasure                → Data restore attempt
+├── TC-1066 GDPR cross-border test               → Transfer path
+├── TC-1067 GDPR DPIA gap                        → Process gap
+├── TC-1068 ISO 27001 Annex A                    → Control mapping
+├── TC-1069 ISO internal audit bypass            → Detectability
+├── TC-1070 ISO evidence tamper                  → Log integrity
+├── TC-1071 NIS2 reporting                       → Report test
+├── TC-1072 SOX access review                    → Segregation gap
+├── TC-1073 SOC2 trust services                  → Control gap
+├── TC-1074 CIS cloud benchmark                  → Baseline drift
+├── TC-1075 Container compliance                 → Image policy
+├── TC-1076 Compliance dashboard                 → Coverage gap
+├── TC-1077 Evidence retention                   → Retention bypass
+└── TC-1078 Full compliance chain                → Full chain success
+```
+
+### Layer 57: Methodology Mapping
+
+```
+LAYER 57 - METHODOLOGY MAPPING:
+├── TC-1079 PTES scoping                        → Scope definition
+├── TC-1080 PTES intel gathering                → OSINT complete
+├── TC-1081 PTES threat modeling                → Asset list
+├── TC-1082 PTES vuln analysis                  → Vulnerability catalog
+├── TC-1083 PTES exploitation                   → Access achieved
+├── TC-1084 PTES post-exploitation              → Persistence
+├── TC-1085 PTES reporting                      → Report deliverable
+├── TC-1086 OWASP top 10 mapping                → Category map
+├── TC-1087 OWASP ASVS check                    → Control level
+├── TC-1088 OWASP testing guide                 → Pass/fail matrix
+├── TC-1089 OWASP API top 10                    → API risk map
+├── TC-1090 OWASP LLM top 10                    → LLM risk map
+├── TC-1091 OWASP mobile                        → Mobile checklist
+├── TC-1092 OWASP firmware                      → Firmware checklist
+├── TC-1093 NIST 800-115 mapping                → Phase mapping
+├── TC-1094 NIST cyber framework                → Function map
+├── TC-1095 NIST 800-53 control                 → Control coverage
+├── TC-1096 NIST risk assessment               → Risk register
+├── TC-1097 OSSTMM scope                        → RA metrics
+├── TC-1098 OSSTMM channel checks               → Human/physical
+├── TC-1099 OSSTMM index check                  → Trust index
+├── TC-1100 OSSTMM metrics                      → Score sheet
+├── TC-1101 MITRE ATT&CK map                    → Technique mapping
+├── TC-1102 MITRE D3FEND counter                → Defense mapping
+├── TC-1103 MITRE pre-ATT&CK                    → Recon mapping
+├── TC-1104 Unified kill chain                  → Kill chain map
+├── TC-1105 Cross-framework alignment           → Gap analysis
+├── TC-1106 Framework report export             → Evidence pack
+└── TC-1107 Full methodology chain              → Full chain success
+```
+
+### Layer 58: OPSEC Procedures
+
+```
+LAYER 58 - OPSEC PROCEDURES:
+├── TC-1108 Comms encryption                   → End-to-end crypto
+├── TC-1109 Comms cover                        → Stealth channel
+├── TC-1110 Ops persona                        → Separate identity
+├── TC-1111 Data-at-rest                       → Encrypted store
+├── TC-1112 Data-in-transit                    → TLS enforced
+├── TC-1113 Data sanitization                  → DOD wipe
+├── TC-1114 Team hygiene                       → Session artifacts
+├── TC-1115 Credential burner                  → Rotated creds
+├── TC-1116 Timeline de-confliction            → Ops sync
+├── TC-1117 Incident blackout                  → Ops pause
+├── TC-1118 Burn phone                         → Disposable device
+├── TC-1119 SIM/identity                       → Anonymous identity
+├── TC-1120 Split comms                        → Segregated channels
+├── TC-1121 Travel cover                       → Ops field
+├── TC-1122 Digital footprint                  → Minimized trail
+├── TC-1123 Secure audit log                   → Tamper-evident
+├── TC-1124 Counterintel                       → Detection probe
+├── TC-1125 False flag                         → Attribution confusion
+├── TC-1126 Voice comms                        → Voice security
+├── TC-1127 Operational tempo                  → Randomize timing
+└── TC-1128 Full OPSEC chain                   → Full chain success
+```
+
+### Layer 59: Multi-Cloud
+
+```
+LAYER 59 - MULTI-CLOUD:
+├── TC-1129 Cross-cloud identity pivot          → Role hop
+├── TC-1130 GCP→AWS assume role                 → Cross-role access
+├── TC-1131 Azure→GCP SA abuse                  → Cross-SA access
+├── TC-1132 Cross-cloud secret exfil            → Secret leak
+├── TC-1133 Multi-cloud sync                    → Sync hijack
+├── TC-1134 Federated identity abuse            → IdP compromise
+├── TC-1135 Cross-region staging                → Region hop
+├── TC-1136 Cross-cloud C2 relay                → Relay up
+├── TC-1137 MSP tenant pivot                    → Tenant escape
+├── TC-1138 Marketplace backdoor                → Vendor supply
+├── TC-1139 Cross-cloud monitoring suppression  → Blind spot
+├── TC-1140 Multi-cloud compliance gap          → Policy gap
+└── TC-1141 Full multi-cloud chain              → Full chain success
+```
+
+### Layer 60: Web Misc
+
+```
+LAYER 60 - WEB MISC:
+├── TC-1142 Host header injection               → Poison cache/reset
+├── TC-1143 SMS header injection                → SMS spoof
+├── TC-1144 Email header injection              → Email spoof
+├── TC-1145 Log injection/poisoning             → Forged log
+├── TC-1146 Header XSS injection                → Reflected header XSS
+├── TC-1147 Response splitting                  → CRLF append
+├── TC-1148 Session ID in URL                   → Session leak
+├── TC-1149 Clickjacking frame                  → Iframe abuse
+├── TC-1150 Framebusting bypass                 → Frame retained
+├── TC-1151 Prototype pollution                 → Client-side RCE
+└── TC-1152 Full web misc chain                 → Full chain success
+```
+
+### Layer 61: Memory Corruption
+
+```
+LAYER 61 - MEMORY CORRUPTION:
+├── TC-1153 Stack buffer overflow               → Crash → EIP control
+├── TC-1154 Heap overflow                       → Chunk overwrite
+├── TC-1155 Use-after-free                      → Reuse exploit
+├── TC-1156 Double free                         → Heap dup
+├── TC-1157 Integer overflow                    → Bounds bypass
+├── TC-1158 Format string                       → Info leak
+├── TC-1159 Off-by-one                          → Adjacent overwrite
+├── TC-1160 Stack cookie bypass                 → Cookie leak
+├── TC-1161 SEH overwrite                       → Handler hijack
+├── TC-1162 ASLR partial bypass                 → Leak + ret
+├── TC-1163 DEP/NX ROP                          → Ret2rop
+├── TC-1164 Heap spray                          → Deterministic landing
+├── TC-1165 House of spirit                     → Fake chunk
+├── TC-1166 House of force                      → Top chunk push
+├── TC-1167 Tcache poisoning                    → Arbitrary alloc
+├── TC-1168 Fastbin dup                         → Double alloc
+├── TC-1169 Ret2PLT                             → GOT resolve
+├── TC-1170 Ret2libc                            → libc exec
+├── TC-1171 Ret2csu                             → Universal gadget
+├── TC-1172 Ret2dlresolve                       → Full resolve
+├── TC-1173 SROP                                → Sigreturn frame
+├── TC-1174 JOP/COP                             → Call-oriented
+├── TC-1175 ObjC message confusion              → Method swap
+├── TC-1176 VTable trick                        → C++ dispatch
+├── TC-1177 Vfptr overwrite                     → Virtual hijack
+├── TC-1178 Container escape                    → Kernel memory
+└── TC-1179 Full memory corruption chain        → Full chain success
+```
+
+### Layer 62: Deserialization
+
+```
+LAYER 62 - DESERIALIZATION:
+├── TC-1180 Java ObjectInputStream              → Gadget chain
+├── TC-1181 ysoserial commons                   → Commons-chain RCE
+├── TC-1182 Java RMI deser                      → Remote class load
+├── TC-1183 Java JNDI                           → LDAP RCE
+├── TC-1184 Python pickle                       → __reduce__ RCE
+├── TC-1185 Python PIL Image                    → CVE deser
+├── TC-1186 Python flask session                → Signed cookie
+├── TC-1187 PHP unserialize POP                 → Property chain
+├── TC-1188 PHP phar deser                      → Phar trigger
+├── TC-1189 PHP object injection                → Magic invoke
+├── TC-1190 .NET BinaryFormatter                → Type-confusion
+├── TC-1191 .NET JSON deser                     → TypeNameHandling
+├── TC-1192 .NET ViewState                      → MAC bypass
+├── TC-1193 .NET XML deser                      → XAML gadget
+├── TC-1194 Ruby Marshal                        → Object injection
+├── TC-1195 Ruby YAML                           → Code execution
+├── TC-1196 Rails strong params                 → Permitted keys
+├── TC-1197 NodeJS serialize                    → RCE gadget
+├── TC-1198 Go gob                              → Struct confusion
+├── TC-1199 Groovy gadget                       → Script class
+├── TC-1200 JBoss InvokerTransformer            → Commons gadget
+├── TC-1201 WebLogic wl_t3                      → T3 RCE
+├── TC-1202 Fastjson                            → Auto-type RCE
+├── TC-1203 Kotlin data class                   → Constructor abuse
+└── TC-1204 Full deser chain                    → Full chain success
+```
+
+### Layer 63: Race Conditions
+
+```
+LAYER 63 - RACE CONDITIONS:
+├── TC-1205 TOCTOU file check                   → Check/set race
+├── TC-1206 TOCTOU symlink                      → Symlink swap
+├── TC-1207 TOCTOU setuid                       → Priv swap
+├── TC-1208 Concurrent login bypass             → Double auth
+├── TC-1209 Double submission                   → Points double
+├── TC-1210 Konga lottery                       → Winner race
+├── TC-1211 Password change race                → Stale state
+├── TC-1212 File rename race                    → Overwrite
+├── TC-1213 Write-write race                    → Garbled data
+├── TC-1214 Multi-vote abuse                    → Vote stacking
+├── TC-1215 Quantity race                       → Qty mismatch
+├── TC-1216 Double-spend                        → Balance dup
+├── TC-1217 Signup bonus race                   → Bonus farm
+├── TC-1218 Cache invalidation race             → Stale serve
+├── TC-1219 CPU-bound race                      → Thread contention
+├── TC-1220 Block-dependent race                → Order confusion
+└── TC-1221 Full race chain                     → Full chain success
+```
+
+### Layer 64: GraphQL Deep
+
+```
+LAYER 64 - GRAPHQL DEEP:
+├── TC-1222 Introspection disclosure            → Schema dump
+├── TC-1223 Field suggestion                    → Schema leak
+├── TC-1224 Alias batching                      → Batch abuse
+├── TC-1225 Batch brute                         → Parallel attack
+├── TC-1226 Nested query DoS                    → Depth DoS
+├── TC-1227 Fragment loop DoS                   → Loop exhaustion
+├── TC-1228 Directive DoS                       → Resource request
+├── TC-1229 Batching limit bypass               → Limit evade
+├── TC-1230 Query-level authz                   → Global authz gap
+├── TC-1231 Mutation-level authz                → Authz audit
+├── TC-1232 Object-level authz                  → IDOR field
+├── TC-1233 IDOR via GraphQL                    → Union object
+├── TC-1234 Variable-based injection            → SQLi via variable
+├── TC-1235 Subscription abuse                  → Real-time pipe
+├── TC-1236 Persisted query abuse               → Cache abuse
+├── TC-1237 CSRF in GraphQL                     → GET mutation
+├── TC-1238 Schema merge confusion              → Merge conflict
+├── TC-1239 Cache key leak                      → User data leak
+└── TC-1240 Full GraphQL chain                  → Full chain success
+```
+
+### Layer 65: Cryptographic Attacks
+
+```
+LAYER 65 - CRYPTOGRAPHIC ATTACKS:
+├── TC-1241 Padding oracle                      → Plaintext decrypt
+├── TC-1242 CBC bit flipping                    → IV flip
+├── TC-1243 ECB cut/paste                       → Block reorder
+├── TC-1244 Length extension                    → Suffix forge
+├── TC-1245 Hash collision                      → Duplicate input
+├── TC-1246 Weak hash MD5                       → Fast collision
+├── TC-1247 Predictable random                  → Seed guess
+├── TC-1248 Nonce reuse                         → Keystream leak
+├── TC-1249 Key reuse                           → Cross-message decrypt
+├── TC-1250 IV reuse                            → Duplicate keystream
+├── TC-1251 ECDSA nonce reuse                   → Private key recovery
+├── TC-1252 RSA low exponent                    → Root decrypt
+├── TC-1253 RSA padding oracle                  → Blind decrypt
+├── TC-1254 DH small subgroup                   → Key reduce
+├── TC-1255 JWT none alg                        → None accepted
+├── TC-1256 JWT HS/RS confusion                 → Signature forge
+├── TC-1257 JWT kid injection                   → Key confusion
+├── TC-1258 JWT jku confusion                   → Key URL hijack
+├── TC-1259 Crypto fault                        → Timing-based
+├── TC-1260 SSL renegotiation                   → Session prefix
+├── TC-1261 CBC-MAC flaw                        → MAC forge
+└── TC-1262 Full crypto chain                   → Full chain success
+```
+
+### Layer 66: Password Reset
+
+```
+LAYER 66 - PASSWORD RESET:
+├── TC-1263 Reset token in URL                  → Token leaked
+├── TC-1264 Reset token guessable              → Token predict
+├── TC-1265 User enumeration via reset          → User existence leak
+├── TC-1266 Reset poisoning (host header)       → Poisoned email link
+├── TC-1267 Email spoofed reset                 → Replacement reset
+├── TC-1268 SMS hijack reset                    → SIM swap
+├── TC-1269 Reset response manipulation         → Response tamper
+├── TC-1270 Session invalidation failure        → Stale session
+├── TC-1271 Reset token reuse                   → Reuse password
+├── TC-1272 Race on reset                       → Parallel reset
+├── TC-1273 Timing attack reset                 → Time oracle
+├── TC-1274 Answer-based reset                  → Guessable set
+├── TC-1275 Reset username confusion            → Mass assignment
+├── TC-1276 Reset mail IDOR                     → Cross-user email
+├── TC-1277 Temporary password default          → Default reuse
+├── TC-1278 Account lock bypass                 → Brute reset
+└── TC-1279 Full reset chain                    → Full chain success
+```
+
+### Layer 67: Business Logic
+
+```
+LAYER 67 - BUSINESS LOGIC:
+├── TC-1280 Negative quantity                   → Negative total
+├── TC-1281 Integer overflow pricing            → Inflated discount
+├── TC-1282 Currency rounding                   → Rounding toss
+├── TC-1283 Discount stacking                   → Stack multiplier
+├── TC-1284 Coupon reuse                        → Reused coupon
+├── TC-1285 Gift card race                      → Balance dup
+├── TC-1286 Price manipulation                  → Manipulated total
+├── TC-1287 Step-skip flow                      → Skip step
+├── TC-1288 State machine abuse                 → Unreachable state
+├── TC-1289 Missing approval                    → Approval skip
+├── TC-1290 Privileged action                   → Privilege function
+├── TC-1291 Bulk operation abuse                → Bulk misuse
+├── TC-1292 Loyalty points                      → Points inflate
+├── TC-1293 Rate limit logic bypass             → Rate bypass
+├── TC-1294 OAuth transaction binding           → Unbound transaction
+├── TC-1295 Free trial abuse                    → Trial loop
+├── TC-1296 Refund abuse                        → Refund dup
+├── TC-1297 Signup bonus farming                → Bonus farm
+├── TC-1298 Transfer double-spend               → Duplicate transfer
+└── TC-1299 Full business logic chain           → Full chain success
+```
+
+### Layer 68: gRPC
+
+```
+LAYER 68 - GRPC:
+├── TC-1300 Reflection disclosure               → Service dump
+├── TC-1301 Unauthenticated method call         → Unprotected call
+├── TC-1302 Protobuf tamper                     → Field mutation
+├── TC-1303 Trailing fields smuggling           → Field smuggling
+├── TC-1304 HTTP/2 TE smuggling                 → Desync
+├── TC-1305 Metadata injection                  → Header poison
+├── TC-1306 TLS-terminated gRPC stripping       → Plaintext fallback
+├── TC-1307 gRPC-web bypass                     → CORS/CSRF
+├── TC-1308 Streaming DoS                       → Stream flood
+├── TC-1309 Interceptor auth bypass             → Authz skip
+├── TC-1310 Health check abuse                  → Status spoof
+├── TC-1311 Proto decoding DoS                  → Recursion crash
+├── TC-1312 Reflection schema extraction        → Schema leak
+├── TC-1313 Status code info leak               → Debug status
+├── TC-1314 Deadline abuse                      → Long window
+└── TC-1315 Full gRPC chain                     → Full chain success
+```
+
+### Layer 69: VLAN
+
+```
+LAYER 69 - VLAN:
+├── TC-1316 VLAN hopping (double tagging)       → Native VLAN access
+├── TC-1317 Switch spoofing DTP                 → Trunk negotiation
+├── TC-1318 VTP injection                       → VLAN redirection
+├── TC-1319 STP BPDU spoof                      → Root role
+├── TC-1320 CAM table flooding                  → MAC overflow
+├── TC-1321 PVLAN escalation                    → Isolated breach
+├── TC-1322 Trunk misconfig                     → Cross-VLAN
+├── TC-1323 VLAN misconfig broadcast            → Broadcast flood
+├── TC-1324 QinQ cross-VLAN                     → Stack bypass
+├── TC-1325 802.1Q tag mutation                 → Tag flip
+├── TC-1326 DTP disabled bypass                 → Alternate protocol
+├── TC-1327 MAC flooding timeout                → Cache flush
+├── TC-1328 Virtualization VLAN                 → VM escape
+└── TC-1329 Full VLAN chain                     → Full chain success
+```
+
+### Layer 70: ARP/DHCP
+
+```
+LAYER 70 - ARP/DHCP:
+├── TC-1330 ARP spoofing                        → MITM in place
+├── TC-1331 ARP cache poisoning                 → Cache poisoned
+├── TC-1332 ARP MITM session hijack             → Session taken
+├── TC-1333 Gratuitous ARP DoS                  → Route redirect
+├── TC-1334 ARP storm                           → Network DoS
+├── TC-1335 DHCP starvation                     → Pool exhausted
+├── TC-1336 Rogue DHCP server                   → Fake lease
+├── TC-1337 DHCP spoofing gateway               → Fake gateway
+├── TC-1338 DHCPv6 spoof                        → RA/DHCPv6
+├── TC-1339 DHCP relay abuse                    → Relay MITM
+├── TC-1340 DHCP option 82 trust                → Trust abuse
+├── TC-1341 ARP poisoning gateway pivot         → Pivot path
+├── TC-1342 MITM TLS downgrade                  → Downgrade attempt
+├── TC-1343 DNS via DHCP spy                    → DNS leak
+├── TC-1344 ARP/DHCP combined                   → Full combo
+├── TC-1345 MAC spoof bypass NAC                → NAC bypass
+└── TC-1346 Full ARP/DHCP chain                 → Full chain success
 ```
 
 ---
 
 ## 18. KESIMPULAN
 
-ANGEL adalah platform offensive security tingkat lanjut untuk P0/P1 findings. Platform ini mencakup 70 layer dengan ~2100+ modules, mencakup konvensional red team, cloud-native, container, mobile, wireless, social engineering, supply chain, Web3, AI/ML, IPv6, SAML/OIDC, LDAP, CSRF, web cache poisoning, HTTP smuggling, SCADA/ICS, IoT, compliance testing, OPSEC, memory corruption, deserialization, race conditions, GraphQL, cryptography, password reset, business logic, gRPC, VLAN hopping, dan ARP/DHCP spoofing. Setiap layer memiliki minimal 5-7 teknik alternatif, fallback otomatis, deteksi environment, adaptasi, edge case handling, resilience, dan recovery. Semua 70 layer memiliki fallback chains, edge cases, dan test scenarios.
+ANGEL adalah platform offensive security tingkat lanjut untuk P0/P1 findings. Platform ini mencakup 70 layer dengan ~2100+ modules, mencakup konvensional red team, cloud-native, container, mobile, wireless, social engineering, supply chain, Web3, AI/ML, IPv6, SAML/OIDC, LDAP, CSRF, web cache poisoning, HTTP smuggling, SCADA/ICS, IoT, compliance testing, OPSEC, memory corruption, deserialization, race conditions, GraphQL, cryptography, password reset, business logic, gRPC, VLAN hopping, dan ARP/DHCP spoofing. Setiap layer memiliki minimal 5-7 teknik alternatif, fallback otomatis, deteksi environment, adaptasi, edge case handling, resilience, dan recovery. Semua 70 layer memiliki fallback chains, edge cases, dan test scenarios (total 1.346 test case, TC-001–TC-1346).
 
 ---
 
