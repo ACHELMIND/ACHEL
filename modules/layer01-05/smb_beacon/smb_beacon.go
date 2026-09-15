@@ -1,58 +1,16 @@
 package smb_beacon
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
 )
-
-type SMBBeacon struct {
-	mu          sync.RWMutex
-	id          string
-	pipeName    string
-	connected   bool
-	lastCheckIn time.Time
-	serverAddr  string
-}
 
 type SMBMessage struct {
 	ID        string
 	Type      string
 	Payload   []byte
 	Timestamp time.Time
-}
-
-func NewSMBBeacon(serverAddr string) *SMBBeacon {
-	pipeName := generatePipeName()
-	return &SMBBeacon{
-		id:         generateID(),
-		pipeName:   pipeName,
-		connected:  false,
-		serverAddr: serverAddr,
-	}
-}
-
-func (b *SMBBeacon) Connect() error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	b.connected = true
-	b.lastCheckIn = time.Now()
-	return nil
-}
-
-func (b *SMBBeacon) Disconnect() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.connected = false
-}
-
-func (b *SMBBeacon) IsConnected() bool {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	return b.connected
 }
 
 func (b *SMBBeacon) SendMessage(msg *SMBMessage) error {
@@ -75,7 +33,7 @@ func (b *SMBBeacon) ReceiveMessage() (*SMBMessage, error) {
 	}
 
 	return &SMBMessage{
-		ID:        generateID(),
+		ID:        generateBeaconID(),
 		Type:      "heartbeat",
 		Payload:   []byte{},
 		Timestamp: time.Now(),
@@ -86,30 +44,15 @@ func (b *SMBBeacon) CheckIn() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.lastCheckIn = time.Now()
+	b.lastCheckin = time.Now()
 	return nil
-}
-
-func (b *SMBBeacon) GetID() string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	return b.id
 }
 
 func (b *SMBBeacon) GetPipeName() string {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	return b.pipeName
+	return b.namePipe.GetName()
 }
 
-func generatePipeName() string {
-	b := make([]byte, 8)
-	rand.Read(b)
-	return fmt.Sprintf("\\\\.\\pipe\\msagent_%s", hex.EncodeToString(b))
-}
-
-func generateID() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return hex.EncodeToString(b)
-}
+var _ = sync.RWMutex{}
+var _ = time.Now

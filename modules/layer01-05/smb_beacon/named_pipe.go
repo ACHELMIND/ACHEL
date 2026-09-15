@@ -1,6 +1,8 @@
 package smb_beacon
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
@@ -58,7 +60,7 @@ func (p *NamedPipe) Read() (*PipeMessage, error) {
 	}
 
 	return &PipeMessage{
-		ID:        generateID(),
+		ID:        generatePipeID(),
 		Type:      "data",
 		Payload:   []byte{},
 		Timestamp: time.Now(),
@@ -93,4 +95,16 @@ func (p *NamedPipe) GetLastIO() time.Time {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.lastIO
+}
+
+func generatePipeName() string {
+	b := make([]byte, 8)
+	rand.Read(b)
+	return fmt.Sprintf("\\\\.\\pipe\\msagent_%s", hex.EncodeToString(b))
+}
+
+func generatePipeID() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }
