@@ -24,12 +24,15 @@ type TaskResult struct {
 	Error     string
 	Timestamp time.Time
 	Duration  time.Duration
+	Data      string
+	Type      string
 }
 
 type ResultCallback func(result *TaskResult)
 
 type ResultHandlerConfig struct {
 	MaxResults int
+	BufferSize int
 }
 
 func NewResultHandler(config ResultHandlerConfig) *ResultHandler {

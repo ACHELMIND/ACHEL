@@ -151,3 +151,15 @@ func (s *Server) IsRunning() bool {
 	defer s.mu.RUnlock()
 	return s.running
 }
+
+func (s *Server) GetAgentCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.agents)
+}
+
+func (s *Server) GetTaskCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.tasks)
+}

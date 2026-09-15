@@ -27,7 +27,8 @@ type QueuedTask struct {
 }
 
 type TaskQueueConfig struct {
-	MaxSize int
+	MaxTasks     int
+	PriorityMode string
 }
 
 func NewTaskQueue(config TaskQueueConfig) *TaskQueue {
@@ -37,14 +38,20 @@ func NewTaskQueue(config TaskQueueConfig) *TaskQueue {
 	}
 }
 
-func (tq *TaskQueue) AddTask(task *QueuedTask) {
+func (tq *TaskQueue) AddTask(id string, taskType string, payload string) {
 	tq.mu.Lock()
 	defer tq.mu.Unlock()
+
+	task := &QueuedTask{
+		ID:      id,
+		Type:    taskType,
+		Payload: payload,
+		Status:  "pending",
+	}
 
 	if task.ID == "" {
 		task.ID = generateTaskID()
 	}
-	task.Status = "pending"
 	task.CreatedAt = time.Now()
 	task.UpdatedAt = time.Now()
 
@@ -52,22 +59,14 @@ func (tq *TaskQueue) AddTask(task *QueuedTask) {
 	tq.priority = append(tq.priority, task.ID)
 }
 
-func (tq *TaskQueue) GetTask() *QueuedTask {
+func (tq *TaskQueue) GetTask(id string) *QueuedTask {
 	tq.mu.Lock()
 	defer tq.mu.Unlock()
 
-	if len(tq.priority) == 0 {
-		return nil
+	if task, exists := tq.tasks[id]; exists {
+		return task
 	}
-
-	taskID := tq.priority[0]
-	tq.priority = tq.priority[1:]
-
-	task := tq.tasks[taskID]
-	task.Status = "processing"
-	task.UpdatedAt = time.Now()
-
-	return task
+	return nil
 }
 
 func (tq *TaskQueue) CompleteTask(taskID string) {
