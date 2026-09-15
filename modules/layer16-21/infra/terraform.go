@@ -2,11 +2,16 @@ package infra
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"text/template"
+	"time"
 
 	"github.com/angel-platform/angel/pkg/logger"
 )
@@ -180,6 +185,32 @@ func (t *TerraformManager) GenerateTF(provider TFProvider, config *InfraConfig) 
 	return buf.String(), nil
 }
 
+// runTF executes a terraform command in the given workdir and returns combined output.
+func (t *TerraformManager) runTF(workdir string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "terraform", args...)
+	cmd.Dir = workdir
+	cmd.Env = append(os.Environ(), "TF_IN_AUTOMATION=1", "TF_INPUT=false")
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	t.log.Info("exec: terraform %s (workdir=%s)", strings.Join(args, " "), workdir)
+
+	if err := cmd.Run(); err != nil {
+		errOutput := strings.TrimSpace(stderr.String())
+		if errOutput == "" {
+			errOutput = strings.TrimSpace(stdout.String())
+		}
+		return "", fmt.Errorf("terraform %s failed: %w\n%s", strings.Join(args, " "), err, errOutput)
+	}
+
+	return stdout.String(), nil
+}
+
 func (t *TerraformManager) ApplyTF(workdir string) error {
 	t.log.Info("Applying Terraform in %s", workdir)
 
@@ -187,9 +218,14 @@ func (t *TerraformManager) ApplyTF(workdir string) error {
 		return fmt.Errorf("create workdir: %w", err)
 	}
 
-	initFile := filepath.Join(workdir, "terraform.tf")
-	if err := os.WriteFile(initFile, []byte("# terraform init placeholder\n"), 0644); err != nil {
-		return fmt.Errorf("write init file: %w", err)
+	// terraform init
+	if _, err := t.runTF(workdir, "init", "-input=false", "-no-color"); err != nil {
+		return fmt.Errorf("terraform init: %w", err)
+	}
+
+	// terraform apply -auto-approve
+	if _, err := t.runTF(workdir, "apply", "-auto-approve", "-input=false", "-no-color"); err != nil {
+		return fmt.Errorf("terraform apply: %w", err)
 	}
 
 	t.log.Info("Terraform apply completed in %s", workdir)
@@ -199,15 +235,71 @@ func (t *TerraformManager) ApplyTF(workdir string) error {
 func (t *TerraformManager) PlanTF(workdir string) (*TFPlan, error) {
 	t.log.Info("Planning Terraform in %s", workdir)
 
-	plan := &TFPlan{
-		Changes: []TFChange{
-			{Resource: "aws_instance.main", Action: "create"},
-		},
-		Add:     1,
-		Change:  0,
-		Destroy: 0,
-		Errored: false,
-		Raw:     "# Terraform plan output\nPlan: 1 to add, 0 to change, 0 to destroy.",
+	if err := os.MkdirAll(workdir, 0755); err != nil {
+		return nil, fmt.Errorf("create workdir: %w", err)
+	}
+
+	// Ensure initialised before planning
+	if _, err := t.runTF(workdir, "init", "-input=false", "-no-color"); err != nil {
+		return nil, fmt.Errorf("terraform init before plan: %w", err)
+	}
+
+	raw, err := t.runTF(workdir, "plan", "-input=false", "-no-color", "-json")
+	if err != nil {
+		return nil, fmt.Errorf("terraform plan: %w", err)
+	}
+
+	// Parse the JSON output
+	plan := &TFPlan{Raw: raw}
+	lines := strings.Split(raw, "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Try to parse each line as a JSON object (Terraform JSON output emits one JSON per line)
+		var event struct {
+			Type string `json:"@level"`
+			Message string `json:"@message"`
+			Changes *struct {
+				Add int `json:"add"`
+				Change int `json:"change"`
+				Destroy int `json:"destroy"`
+				ResourceChanges []struct {
+					Address string `json:"address"`
+					Change struct {
+						Action string `json:"actions"`
+						Before json.RawMessage `json:"before"`
+						After  json.RawMessage `json:"after"`
+					} `json:"change"`
+				} `json:"resource_changes"`
+			} `json:"changes"`
+		}
+
+		if json.Unmarshal([]byte(line), &event) != nil {
+			continue
+		}
+
+		if event.Changes != nil {
+			plan.Add = event.Changes.Add
+			plan.Change = event.Changes.Change
+			plan.Destroy = event.Changes.Destroy
+
+			for _, rc := range event.Changes.ResourceChanges {
+				plan.Changes = append(plan.Changes, TFChange{
+					Resource: rc.Address,
+					Action:   rc.Change.Action,
+					Before:   string(rc.Change.Before),
+					After:    string(rc.Change.After),
+				})
+			}
+		}
+
+		if strings.Contains(event.Message, "Error:") || strings.Contains(event.Message, "error") {
+			plan.Errored = true
+		}
 	}
 
 	return plan, nil

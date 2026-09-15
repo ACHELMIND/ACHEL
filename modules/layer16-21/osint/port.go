@@ -56,7 +56,7 @@ func (p *PortScanner) TCPScan(host string, ports []int) ([]OpenPort, error) {
 		go func() {
 			defer wg.Done()
 			for port := range portCh {
-				addr := fmt.Sprintf("%s:%d", host, port)
+				addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 				conn, err := net.DialTimeout("tcp", addr, p.config.Timeout)
 				if err == nil {
 					conn.Close()
@@ -93,7 +93,7 @@ func (p *PortScanner) ServiceFingerprint(host string, port int) (*ServiceInfo, e
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
 	conn, err := net.DialTimeout("tcp", addr, p.config.Timeout)
 	if err != nil {
@@ -112,7 +112,7 @@ func (p *PortScanner) ServiceFingerprint(host string, port int) (*ServiceInfo, e
 }
 
 func (p *PortScanner) BannerGrab(host string, port int) (string, error) {
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
 	conn, err := net.DialTimeout("tcp", addr, p.config.Timeout)
 	if err != nil {
@@ -141,7 +141,7 @@ func (p *PortScanner) ScanRange(host string, startPort, endPort int) ([]OpenPort
 }
 
 func (p *PortScanner) IsPortOpen(host string, port int) bool {
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 	conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
 	if err != nil {
 		return false

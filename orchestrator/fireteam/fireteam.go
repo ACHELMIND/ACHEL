@@ -241,7 +241,21 @@ func (ft *Fireteam) GetResults() []*Result {
 	ft.mu.RLock()
 	defer ft.mu.RUnlock()
 	results := make([]*Result, len(ft.results))
-	copy(results, ft.results)
+	for i, r := range ft.results {
+		dr := &Result{
+			TaskID:    r.TaskID,
+			AgentID:   r.AgentID,
+			Error:     r.Error,
+			Timestamp: r.Timestamp,
+		}
+		if r.Data != nil {
+			dr.Data = make(map[string]interface{}, len(r.Data))
+			for k, v := range r.Data {
+				dr.Data[k] = v
+			}
+		}
+		results[i] = dr
+	}
 	return results
 }
 

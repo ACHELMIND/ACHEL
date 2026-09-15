@@ -33,11 +33,14 @@ func ComputeSharedSecret(privKey *ecdsa.PrivateKey, peerPubKey []byte) ([]byte, 
 		return nil, fmt.Errorf("invalid public key")
 	}
 
-	xBytes := x.Bytes()
-	yBytes := y.Bytes()
+	sharedX, sharedY := privKey.Curve.ScalarMult(x, y, privKey.D.Bytes())
+	if sharedX == nil {
+		return nil, fmt.Errorf("scalar multiplication failed")
+	}
 
-	shared := sha256.Sum256(append(xBytes, yBytes...))
-	return shared[:], nil
+	sharedBytes := elliptic.MarshalCompressed(privKey.PublicKey.Curve, sharedX, sharedY)
+	hash := sha256.Sum256(sharedBytes)
+	return hash[:], nil
 }
 
 func SignMessage(privKey *ecdsa.PrivateKey, message []byte) ([]byte, error) {
