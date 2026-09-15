@@ -1,0 +1,98 @@
+---
+- name: ANGEL Platform Deployment
+  hosts: all
+  become: yes
+  vars:
+    angel_version: "latest"
+    angel_user: "angel"
+    angel_dir: "/opt/angel"
+    angel_log_dir: "/var/log/angel"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install dependencies
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - build-essential
+          - sqlite3
+          - wireguard
+        state: present
+
+    - name: Create angel user
+      user:
+        name: "{{ angel_user }}"
+        shell: /bin/bash
+        home: "/home/{{ angel_user }}"
+        create_home: yes
+        groups: sudo
+        append: yes
+
+    - name: Create directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ angel_user }}"
+        group: "{{ angel_user }}"
+        mode: '0755'
+      loop:
+        - "{{ angel_dir }}"
+        - "{{ angel_log_dir }}"
+        - "{{ angel_dir }}/bin"
+        - "{{ angel_dir }}/data"
+        - "{{ angel_dir }}/config"
+
+    - name: Download ANGEL binary
+      get_url:
+        url: "https://github.com/ACHELMIND/ACHEL/releases/latest/download/angel-linux-amd64"
+        dest: "{{ angel_dir }}/bin/angel"
+        mode: '0755'
+      when: angel_version == "latest"
+
+    - name: Set permissions
+      file:
+        path: "{{ angel_dir }}/bin/angel"
+        owner: "{{ angel_user }}"
+        group: "{{ angel_user }}"
+        mode: '0755'
+
+    - name: Create systemd service
+      template:
+        src: angel.service.j2
+        dest: /etc/systemd/system/angel.service
+      notify: Restart angel
+
+    - name: Enable and start service
+      systemd:
+        name: angel
+        enabled: yes
+        state: started
+
+    - name: Configure firewall
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - '22'
+        - '80'
+        - '443'
+        - '8080'
+        - '53'
+
+    - name: Enable firewall
+      ufw:
+        state: enabled
+        policy: deny
+
+  handlers:
+    - name: Restart angel
+      systemd:
+        name: angel
+        state: restarted

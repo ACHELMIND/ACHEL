@@ -1,0 +1,22 @@
+[Unit]
+Description=ANGEL Platform Teamserver
+After=network.target
+
+[Service]
+Type=simple
+User={{ angel_user }}
+Group={{ angel_user }}
+WorkingDirectory={{ angel_dir }}
+ExecStart={{ angel_dir }}/bin/angel
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths={{ angel_dir }}/data {{ angel_log_dir }}
+
+[Install]
+WantedBy=multi-user.target
