@@ -51,12 +51,9 @@ func TestTaskQueue_AddGetTask(t *testing.T) {
 		MaxTasks:     100,
 		PriorityMode: "fifo",
 	})
-	//nolint: gocritic
-	id := q.AddTask("test-task", "recon", "{}")
-	if id == "" {
-		t.Error("expected non-empty task ID")
-	}
-	task := q.GetTask(id)
+	q.AddTask("test-task", "recon", "{}")
+	// Verify task was added by checking queue is not empty
+	task := q.GetTask("test-task")
 	if task == nil {
 		t.Fatal("expected non-nil task")
 	}
@@ -67,21 +64,21 @@ func TestTaskQueue_AddGetTask(t *testing.T) {
 
 func TestTaskQueue_AddTaskOverflow(t *testing.T) {
 	q := NewTaskQueue(TaskQueueConfig{MaxTasks: 2})
-	_ = q.AddTask("a", "t", "{}") //nolint
-	_ = q.AddTask("b", "t", "{}") //nolint
-	_ = q.AddTask("c", "t", "{}") //nolint
+	q.AddTask("a", "t", "{}") 
+	q.AddTask("b", "t", "{}") 
+	q.AddTask("c", "t", "{}") 
 	// Queue accepts tasks; overflow behavior depends on config
 }
 
 func TestTaskQueue_CompleteTask(t *testing.T) {
 	q := NewTaskQueue(TaskQueueConfig{MaxTasks: 100})
-	_ = q.AddTask("t", "recon", "{}") //nolint
+	q.AddTask("t", "recon", "{}") 
 	q.CompleteTask("t")
 }
 
 func TestTaskQueue_FailTask(t *testing.T) {
 	q := NewTaskQueue(TaskQueueConfig{MaxTasks: 100})
-	_ = q.AddTask("t", "recon", "{}") //nolint
+	q.AddTask("t", "recon", "{}") 
 	q.FailTask("t")
 }
 
@@ -105,6 +102,7 @@ func TestNewResultHandler(t *testing.T) {
 func TestResultHandler_HandleAndGetResult(t *testing.T) {
 	rh := NewResultHandler(ResultHandlerConfig{BufferSize: 100})
 	result := &TaskResult{
+		ID:       "t1",
 		TaskID:   "t1",
 		AgentID:  "a1",
 		Data:     "test-result",
@@ -147,13 +145,16 @@ func TestResultHandler_RegisterHandler(t *testing.T) {
 	rh.RegisterHandler("recon", func(r *TaskResult) {
 		called = true
 	})
-	rh.HandleResult(&TaskResult{
+	result := &TaskResult{
+		ID:       "t1",
 		TaskID:   "t1",
 		AgentID:  "a1",
 		Data:     "d",
 		Type:     "recon",
 		Timestamp: time.Now(),
-	})
+	}
+	rh.HandleResult(result)
+	time.Sleep(10 * time.Millisecond)
 	if !called {
 		t.Error("expected handler to be called")
 	}

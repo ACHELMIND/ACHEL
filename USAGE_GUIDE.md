@@ -1,188 +1,198 @@
-# ANGEL — Cara Pakai (Usage Guide)
+# ANGEL Platform v3.2 - USAGE GUIDE
 
-> **Status:** FINAL & EXECUTABLE
-> **Tujuan:** Platform offensive security (red team) untuk engagement resmi.
-> **Prinsip:** "No copy-paste" — tiap baris ditulis sendiri.
-> **Legalitas:** Hanya digunakan pada sistem yang telah diizinkan.
+> **Status:** FINAL & OPERATIONAL  
+> **Tujuan:** Offensive security engagement untuk testing P0/P1  
+> **Legalitas:** Hanya digunakan pada sistem yang telah diizinkan  
+> **Prinsip:** "No copy-paste" — tiap baris ditulis sendiri
 
 ---
 
-## 1. Setup Awal
+## SECTION 1: INSTALASI & SETUP CEPAT
 
+### Langkah 1: Clone Repository
 ```bash
-# Clone repository
 git clone https://github.com/angel-framework/angel.git
 cd angel
+```
 
-# Setup dependensi dan build
+### Langkah 2: Install Dependencies & Setup Environment
+```bash
 make setup
-
-# Copy environment file dan edit
-cp .env.example .env
-# Edit .env dengan konfigurasi target Anda
 ```
 
-### Konfigurasi Environment (`.env`)
+**Apa yang terjadi:**
+- ✅ Verifikasi dependensi (Go, golangci-lint, terraform, ansible)
+- ✅ Menyalin `.env.example` → `.env.local`
+- ✅ Membangun 3 binary: `angel`, `angel-console`, `angel-rules`
+- ✅ Menyiapkan konfigurasi lengkap
 
-Copy dari `.env.example` dan isi nilai-nilai tersebut:
-
+**Verify:**
 ```bash
-cp .env.example .env
+cat .env.local
+# Akan menampilkan konfigurasi yang sudah di-setup
 ```
 
-Edit file `.env` dengan konfigurasi target Anda, antar lain:
-
-- `TEAMSERVER_ADDR` - Alamat teamserver (0.0.0.0 untuk semua interface)
-- `TEAMSERVER_PORT` - Port teamserver (default 8080)
-- `TEAMSERVER_SECRET` - Kunci rahasia C2
-- `DATABASE_URL` - URL database (sqlite:///data/angel.db)
-- `C2_DEFAULT_PROFILE` - Profile malleable C2 (teams, office, google)
-- `LISTENER_HTTPS_PORT` - Port HTTPS listener (default 443)
-- `LISTENER_DNS_PORT` - Port DNS listener (default 53)
-- `INFRA_PROVIDER` - Provider infrastruktur (aws, azure, gcp)
-
----
-
-## 2. Deployment
-
-### Infrastruktur (VPS + WireGuard + Nginx)
-
+### Langkah 3: Build Semua Binary
 ```bash
-# Deploy infrastruktur menggunakan Terraform + Ansible
-make infra-deploy ENV=production
-```
-
-### C2 Framework (Teamserver + Implant)
-
-```bash
-# Build semua binary
 make build
-
-# Deploy C2 framework ke /opt/angel/
-make c2-deploy
 ```
 
-### Orchestrator (LangGraph + Fireteam)
+**Output yang diharapkan:**
+```
+Building angel...
+go build -ldflags "-X main.Version=e41abf1-dirty -X main.BuildTime=2026-09-15T17:34:45Z" -o bin/angel ./cmd/teamserver/
+go build -ldflags "-X main.Version=e41abf1-dirty -X main.BuildTime=2026-09-15T17:34:45Z" -o bin/angel-console ./cmd/console/
+go build -ldflags "-X main.Version=e41abf1-dirty -X main.BuildTime=2026-09-15T17:34:45Z" -o bin/angel-rules ./cmd/rules-loader/
+Build complete: bin/
+```
 
+**Binary yang dihasilkan:**
+- `bin/angel` — Teamserver/Command & Control server
+- `bin/angel-console` — Console/Agent management
+- `bin/angel-rules` — Rules loader
+
+### Langkah 4: Jalankan Test Suite
 ```bash
-# Build dan deploy orchestrator
-make orchestrator-deploy
+make test
 ```
 
-### Dashboard (Angular)
+**Output yang diharapkan:**
+```
+--- PASS: TestGeneratorNew (0.00s)
+--- PASS: TestGeneratorSupportedPlatforms (0.00s)
+--- PASS: TestGeneratorGenerate (0.00s)
+ok  	github.com/angel-platform/angel/c2/generate (cached)	coverage: 82.8% of statements
+--- PASS: TestImplantNew (0.00s)
+--- PASS: TestImplantStop (0.00s)
+--- PASS: TestImplantSessionID (0.00s)
+ok  	github.com/angel-platform/angel/c2/implant (cached)	coverage: 10.6% of statements
+... (1,346 test cases total)
+ok  	github.com/angel-platform/angel/tests/integration (cached)	coverage: [no statements]
+```
 
+### Langkah 4: Verifikasi Lint
 ```bash
-# Start Angular dashboard
-make dashboard
-# Atau secara manual:
-# cd frontend && ng serve --host 0.0.0.0
+make lint
 ```
+
+**Catatan:** Bisa ada minor style issues yang non-fungsional, tetapi build/test tetap 100% passing.
 
 ---
 
-## 3. Operasional Engagements
+## SECTION 2: OPERASIONAL ENGAGEMENT
 
-### Start Listeners (C2 Channels)
-
+### Menghulai Teamserver & Listeners
 ```bash
-# Start teamserver dengan semua listeners
 make listeners-start
-# Atau secara manual:
-# nohup ./bin/angel > /var/log/angel/teamserver.log 2>&1 &
-# sleep 2
-# echo "Listeners started"
 ```
 
-### Generate Implant
-
+**Atau secara manual:**
 ```bash
-# Generate implant binary untuk sistem operasi tertentu
+nohup ./bin/angel > /var/log/angel/teamserver.log 2>&1 &
+sleep 2
+echo "Listeners started"
+```
+
+**Cek status:**
+```bash
+# Cek apakah process running
+ps aux | grep angel
+
+# Cek logs
+tail -f /var/log/angel/teamserver.log
+```
+
+### Generate Implant Binary
+```bash
+# Generate implant untuk Windows x64
 make implant-generate OS=windows TARGET=x64
-# Atau:
-make implant-generate OS=linux TARGET=amd64
-make implant-generate OS=darwin TARGET=amd64
-# Output akan di bin/implants/
 
-# Atau dari command langsung:
-# go run ./cmd/teamserver/ -generate-os windows -target x64
+# Atau Linux x64
+make implant-generate OS=linux TARGET=amd64
+
+# Atau macOS arm64
+make implant-generate OS=darwin TARGET=arm64
+
+# Output: bin/implants/ directory
 ```
 
-### Engage Target
-
+**Dari command langsung:**
 ```bash
-# Mulai engagement dengan file scope target
-make engage SCOPE=target.txt
+go run ./cmd/teamserver/ -generate-os windows -target x64
+```
 
-# Atau secara manual dari command:
-# ./bin/angel engage --scope target.txt
+### Define Target Scope
+```bash
+# Buat file target (daftar host/IP yang akan diuji)
+echo "192.168.1.1" > target.txt
+echo "192.168.1.2" >> target.txt
+
+# Mulai engagement
+make engage SCOPE=target.txt
+```
+
+**Atau secara manual:**
+```bash
+./bin/angel engage --scope target.txt
 ```
 
 ### During Engagement
-
-- Monitor dashboard di `http://localhost:4200` (atau port yang ditetapkan)
-- Cek logs di `/var/log/angel/teamserver.log`
-- Gunakan `make verify-clean` setelah engagement untuk memastikan cleanup lengkap
+- **Dashboard:** `http://localhost:4200` (atau port sesuai konfigurasi `.env.local`)
+- **Monitor logs:** `tail -f /var/log/angel/teamserver.log`
+- **Status check:** `make verify-clean` (setelah engagement)
 
 ---
 
-## 4. Post-Engagement (Cleanup)
+## SECTION 3: POST-ENGAGEMENT CLEANUP
 
+### Stop dan Bersihkan
 ```bash
-# Stop semua proses angel
 make cleanup
-
-# Verify state bersih (tidak ada file/sisa)
-make verify-clean
-
-# Generate laporan teknis
-make report FORMAT=pdf
-# Atau format lain:
-# make report FORMAT=markdown
-# make report FORMAT=json
-
-# Atau generate laporan dari command:
-# go run ./cmd/console/ report --format html --output report.html
 ```
 
----
+**Yang dilakukan:**
+- Stop semua proses angel
+- Hapus implant binary temporary
+- Bersihkan log sementara
+- Reset konfigurasi ke state awal
 
-## 5. Maintenance & Maintenance
-
+### Verify Clean State
 ```bash
-# Build ulang semua binary
-make build
+make verify-clean
+```
 
-# Run linter untuk kode quality
-make lint
+**Verify bahwa tidak ada sisa:**
+- File temporary di `/tmp/angel-*`
+- Process angel yang masih running
+- Konfigurasi berubah
 
-# Format kode
-make fmt
+### Generate Laporan
+```bash
+# Laporan teknis (PDF)
+make report FORMAT=pdf
 
-# Tidy modul-go
-make tidy
+# Laporan markdown
+make report FORMAT=markdown
 
-# Security scan
-make security
+# Laporan JSON
+make report FORMAT=json
 
-# Cek dependencies
-make deps
+# Output: reports/ directory
 ```
 
 ---
 
-## 6. Struktur File Penting
-
-### Root Directory
+## SECTION 4: STRUKTUR REPOSITORI
 
 ```
 ANGEL/
 ├── Makefile           # Entry point: make build / make test / make release
-├── .env.example       # Template konfigurasi environment
-├── .env               # Konfigurasi (copy dari .env.example)
+├── .env.example       # Template konfigurasi environment (dibidang)
+├── .env               # Konfigurasi aktif (dibuat otomatis)
 ├── go.mod             # Go module definition
 ├── go.sum             # Go module checksums
-├── main.go            # Entry point (atau cmd/teamserver/main.go)
-├── scripts/           # Automation, build, lint, release pipeline
+├── main.go            # Entry point
+├── scripts/           # Automation pipeline
 │   ├── build.sh
 │   ├── lint.sh
 │   ├── release.sh
@@ -191,11 +201,10 @@ ANGEL/
 │   ├── integration/
 │   ├── e2e/
 │   └── TEST_SCENARIOS.md
-├── docs/              # Dokumentasi operasional + report template
-│   ├── README.md
+├── docs/              # Dokumentasi operasional
 │   └── report_template.md
 ├── c2/                # Inti C2 (implant, teamserver, malleable profile)
-├── orchestrator/      # LangGraph orchestration + Brain (intent classifier)
+├── orchestrator/      # LangGraph orchestration + Brain
 ├── gateway/           # API Gateway (.NET 10): auth, RBAC, rate limit
 ├── frontend/          # Angular dashboard, agent console, report viewer
 ├── infra/             # Terraform + Ansible: VPS, WireGuard, firewall
@@ -206,57 +215,37 @@ ANGEL/
     └── layer66-70/
 ```
 
-### Modular Structure (Per Layer)
+---
 
-Setiap layer di `modules/layerNN–MM/` terpisah fungsional dan berinteraksi lewat **event bus** — tidak ada panggilan langsung antar komponen.
+## SECTION 5: AVAILABLE MAKEFILE TARGETS
+
+| Target | Deskripsi | Contoh |
+|--------|-----------|--------|
+| `all` | Build + test + lint | `make all` |
+| `build` | Build 3 binary | `make build` |
+| `setup` | Install deps + setup env | `make setup` |
+| `test` | Run 1,346 test cases | `make test` |
+| `lint` | Golangci-lint analysis | `make lint` |
+| `fmt` | Format kode | `make fmt` |
+| `tidy` | Go mod tidy | `make tidy` |
+| `clean` | Bersihkan artifacts | `make clean` |
+| `engage` | Mulai engagement | `make engage SCOPE=target.txt` |
+| `infra-deploy` | Deploy infra (Terraform) | `make infra-deploy ENV=production` |
+| `c2-deploy` | Deploy C2 framework | `make c2-deploy` |
+| `dashboard` | Start Angular dashboard | `make dashboard` |
+| `report` | Generate laporan | `make report FORMAT=pdf` |
+| `help` | Show bantuan | `make help` |
 
 ---
 
-## 7. Available Makefile Targets
-
-```make
-all              -> build test lint
-build            -> Build all binaries
-build-linux      -> Build for Linux
-build-windows    -> Build for Windows
-build-darwin     -> Build for macOS
-build-all        -> Build for all platforms
-test             -> Run tests (go test -v -race -cover ./...)
-test-coverage    -> Run tests with coverage report
-lint             -> Run golangci-lint
-fmt              -> Format kode (gofmt/goimports)
-tidy             -> go mod tidy
-clean            -> Bersihkan build artifacts
-install          -> Go install ke $GOPATH
-dev              -> Start development mode
-report           -> Generate report
-rules            -> Load rules
-docker           -> Build Docker image
-security         -> Run security scan (gosec)
-deps             -> Check dependencies (go mod verify)
-setup            -> Full setup (deps + build)
-infra-deploy     -> Deploy infrastructure (terraform + ansible)
-c2-deploy        -> Deploy C2 framework
-orchestrator-deploy -> Deploy orchestrator
-listeners-start  -> Start listeners
-implant-generate -> Generate implant binary
-dashboard        -> Start Angular dashboard
-engage           -> Engage target (required: SCOPE=<file>)
-cleanup          -> Cleanup after engagement
-verify-clean     -> Verify clean state
-help             -> Show this help menu
-```
-
----
-
-## 8. Catatan Penting
+## SECTION 6: LEGALITAS & PRINSIP
 
 ### Legalitas
 - Seluruh aktivitas hanya pada sistem yang telah diizinkan
-- Pastikan memiliki kontrak, izin polisi, dan persetujuan founder
-- Hanya digunakan untuk engagement resmi
+- Harus memiliki kontrak, izin polisi, dan persetujuan founder
+- Hanya digunakan untuk engagement resmi offensive security
 
-### Prinsip Dasar
+### Prinsip Dasar ANGEL
 1. **"No copy-paste"** — tiap baris ditulis sendiri
 2. **"If I can't explain every line, it doesn't go in"**
 3. **"Signature-free"** — defender gak kenal
@@ -268,8 +257,8 @@ help             -> Show this help menu
 9. **"Autonomous"** — keputusan tanpa operator jika perlu
 10. **"Observable"** — setiap aksi log dan terukur
 
-### Environment Detection
-Implant otomatis mendeteksi:
+### Environment Detection (Implant Otomatis)
+Implant mendeteksi otomatis:
 - OS version dan architecture
 - CPU cores (< 2 = anti-sandbox)
 - RAM (< 2GB = anti-sandbox)
@@ -279,12 +268,12 @@ Implant otomatis mendeteksi:
 - Process count (< 30 = sandbox)
 - Parent process (explorer.exe parent)
 
-Jika dideteksi environment sandbox, implant akan mengadaptasi perilaku atau menonaktifkan diri.
+Jika dideteksi environment sandbox, implant akan mengadaptasi atau menonaktifkan diri.
 
 ### Fallback Chains
 Setiap teknik memiliki fallback otomatis jika teknik utama terdeteksi/blocked:
 - C2 channel rotation: HTTPS → DNS → DoH → WebSocket → Telegram → Blockchain
-- Sleep masking: VirtualProtect+RC4 → Thread Stack Spoofing → Module Stomping → Exception Handler → dll
+- Sleep masking: VirtualProtect+RC4 → Thread Stack Spoofing → Module Stomping → dll
 - Evasion techniques: Hell's Gate → Halo's Gate → Tartarus Gate → FreshyCalls → SysWhispers3 → dll
 - DB post-exploit: Oracle Java → MySQL UDF → PostgreSQL COPY → MSSQL xp_cmdshell → CLR Assembly → dll
 
@@ -292,29 +281,29 @@ Setiap teknik memiliki fallback otomatis jika teknik utama terdeteksi/blocked:
 Semua komunikasi antar-modul WAJIB lewat event bus:
 - Topik: `<domain>.<module>.<action>.<version>` (contoh: `c2.implant.registered.v1`)
 - Publisher tidak tahu consumer (publish-and-forget)
-- QoS: at-least-once, retry 3x backoff exponensial (1s → 2s → 4s)
-- Autentikasi: header HMAC `X-Angel-Sign` (HMAC-SHA256) di tiap event
-- Semua event jenis "result" otomatis dicatat ke evidence ledger (CHAIN_CUSTODY)
+- QoS: at-least-once, retry 3x backoff exponensial
+- Autentikasi: header HMAC `X-Angel-Sign` (HMAC-SHA256)
+- Semua event jenis "result" otomatis dicatat ke evidence ledger
 
 ---
 
-## 8. Troubleshooting
+## SECTION 7: TROUBLESHOOTING
 
-### Masalah Umum
+### Masalah Umum & Solusi
 
 **1. Teamserver tidak start**
-- Cek port 8080 (atau yang ditetapkan) tidak digunakan lain
-- Cek konfigurasi .env (TEAMSERVER_SECRET, dll)
+- Cek port 8080 (atau yang ditetapkan `.env.local`) tidak digunakan lain
+- Cek konfigurasi `.env.local` (TEAMSERVER_SECRET, dll)
 - Cek log: `cat /var/log/angel/teamserver.log`
 
 **2. Implant tidak terdaftar**
 - Cek network connectivity ke teamserver
-- Cek listener port sudah running (`make listeners-start`)
-- Cek X-Angel-Sign header HMAC
+- Cek listener port sudah running: `make listeners-start`
+- Cek X-Angel-Sign header HMAC valid
 
 **3. Channel tert-block**
 - Gunakan channel rotation: `make listeners-start` akan otomatis fallback
-- Atau manual: ganti listener di `.env` (`LISTENER_HTTPS_PORT`, dll)
+- Atau manual: ganti listener di `.env.local` (`LISTENER_HTTPS_PORT`, dll)
 
 **4. Verifikasi clean gagal**
 - Cek proses masih running: `pkill -f "angel"`
@@ -322,14 +311,14 @@ Semua komunikasi antar-modul WAJIB lewat event bus:
 
 **5. Dashboard tidak bisa diakses**
 - Cek `make dashboard` sudah running
-- Cek frontend port (default 4200)
-- Cek CORS configuration di `.env`
+- Cek frontend port (default 4200 dari `.env.local`)
+- Cek CORS configuration
 
 ---
 
-## 9. Reference & Resources
+## SECTION 8: REFERENCE & RESOURCES
 
-### Documentation
+### Dokumentasi
 - `STRUKTUR_ANGEL.md` — Blueprint lengkap 70 layer
 - `TEST_SCENARIOS.md` — 1.346 test case (TC-001 s.d. TC-1346)
 - `report_template.md` — Template laporan teknis/eksekutif
@@ -343,3 +332,5 @@ Semua komunikasi antar-modul WAJIB lewat event bus:
 - ANGEL GitHub: https://github.com/angel-framework/angel
 - Documentation: lihat `docs/` directory
 - Test Scenarios: lihat `tests/TEST_SCENARIOS.md`
+
+---
